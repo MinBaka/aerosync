@@ -4,6 +4,8 @@
 
 @layer base {
   body {
-    @apply bg-gray-900 text-white font-sans antialiased;
+    @apply text-white font-sans antialiased bg-transparent overflow-hidden;
+    margin: 0;
+    padding: 0;
   }
 }
