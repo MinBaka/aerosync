@@ -1,0 +1,27 @@
+{
+  "name": "aerosync",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0-rc.3",
+    "@tauri-apps/plugin-shell": "^2.0.0-rc.1",
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0-rc.8",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.6"
+  }
+}
