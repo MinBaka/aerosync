@@ -68,7 +68,7 @@
 
 .app-shell {
   display: grid;
-  grid-template-rows: 36px minmax(0, 1fr);
+  grid-template-rows: 32px minmax(0, 1fr);
   grid-template-columns: 196px minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
@@ -84,7 +84,7 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  height: 36px;
+  height: 32px;
   border-bottom: 1px solid #d9dee8;
   background: #ffffff;
   user-select: none;
@@ -93,7 +93,7 @@
 .titlebar-title {
   grid-column: 2;
   color: #1f2937;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
@@ -105,11 +105,11 @@
 }
 
 .titlebar-button {
-  width: 42px;
+  width: 36px;
   height: 100%;
   background: transparent;
   color: #4b5563;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1;
 }
 

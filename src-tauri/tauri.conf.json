@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "AeroSync",
-        "width": 1024,
-        "height": 768,
+        "width": 1000,
+        "height": 720,
         "decorations": false,
         "transparent": false,
         "center": true

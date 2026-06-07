@@ -18,6 +18,18 @@ pub struct SyncthingState {
     pub config_dir: PathBuf,
 }
 
+impl Drop for SyncthingState {
+    fn drop(&mut self) {
+        if let Ok(mut process_guard) = self.process.lock() {
+            if let Some(mut child) = process_guard.take() {
+                println!("正在停止 Syncthing 进程...");
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddFolderRequest {
@@ -394,10 +406,14 @@ async fn start_syncthing_process(state: &SyncthingState) -> Result<(), String> {
     }
 
     if has_existing_aerosync_syncthing_process(state) {
-        wait_for_syncthing_api(state, Duration::from_secs(10))
-            .await
-            .map_err(|error| format!("检测到已有 Syncthing 进程正在使用 AeroSync 配置目录，但 API 尚未就绪: {error}"))?;
-        return Ok(());
+        match wait_for_syncthing_api(state, Duration::from_secs(10)).await {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                eprintln!("检测到不可用的 AeroSync Syncthing 旧进程，准备清理后重启: {error}");
+                kill_existing_aerosync_syncthing_processes(state);
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
     }
 
     *state.api_key.lock().unwrap() = None;
@@ -761,6 +777,14 @@ fn has_existing_aerosync_syncthing_process(state: &SyncthingState) -> bool {
     }
 
     false
+}
+
+fn kill_existing_aerosync_syncthing_processes(state: &SyncthingState) {
+    #[cfg(target_os = "linux")]
+    {
+        let pattern = format!("syncthing.*--home={}", state.config_dir.to_string_lossy());
+        let _ = Command::new("pkill").args(["-f", &pattern]).status();
+    }
 }
 
 async fn detect_existing_syncthing_api(state: &SyncthingState) -> bool {
