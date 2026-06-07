@@ -56,7 +56,7 @@ pub struct SyncthingOverview {
 
 #[tauri::command]
 pub fn get_syncthing_status(state: tauri::State<'_, SyncthingState>) -> bool {
-    is_process_running(&state)
+    is_process_running(&state) || has_existing_aerosync_syncthing_process(&state)
 }
 
 #[tauri::command]
@@ -69,7 +69,7 @@ pub async fn get_syncthing_overview(
     state: tauri::State<'_, SyncthingState>,
 ) -> Result<SyncthingOverview, String> {
     let running = is_process_running(&state);
-    if !running {
+    if !running && !detect_existing_syncthing_api(&state).await && !has_existing_aerosync_syncthing_process(&state) {
         return Ok(empty_overview(false, false, None));
     }
 
@@ -388,6 +388,18 @@ async fn start_syncthing_process(state: &SyncthingState) -> Result<(), String> {
         return Ok(());
     }
 
+    if detect_existing_syncthing_api(state).await {
+        println!("检测到 AeroSync Syncthing API 已在运行，复用现有实例");
+        return Ok(());
+    }
+
+    if has_existing_aerosync_syncthing_process(state) {
+        wait_for_syncthing_api(state, Duration::from_secs(10))
+            .await
+            .map_err(|error| format!("检测到已有 Syncthing 进程正在使用 AeroSync 配置目录，但 API 尚未就绪: {error}"))?;
+        return Ok(());
+    }
+
     *state.api_key.lock().unwrap() = None;
 
     let app_dir = get_app_dir();
@@ -443,20 +455,25 @@ async fn start_syncthing_process(state: &SyncthingState) -> Result<(), String> {
 }
 
 async fn shutdown_syncthing_process(state: &SyncthingState) -> Result<(), String> {
-    if !is_process_running(state) {
+    if !is_process_running(state) && !detect_existing_syncthing_api(state).await {
         *state.api_key.lock().unwrap() = None;
         return Ok(());
     }
 
     let _ = syncthing_request_empty(state, Method::POST, &["system", "shutdown"], &[], None).await;
 
-    if wait_for_process_exit(state, Duration::from_secs(10)).await {
+    if wait_for_syncthing_process_absent(state, Duration::from_secs(10)).await {
         *state.api_key.lock().unwrap() = None;
         return Ok(());
     }
 
-    kill_syncthing_child(state);
-    Ok(())
+    if is_process_running(state) {
+        kill_syncthing_child(state);
+        return Ok(());
+    }
+
+    *state.api_key.lock().unwrap() = None;
+    Err("Syncthing 仍在运行，但不是 AeroSync 本轮启动的进程，请稍后再试或手动结束旧进程".to_string())
 }
 
 async fn patch_folder_paused(
@@ -545,13 +562,16 @@ async fn wait_for_syncthing_api(state: &SyncthingState, timeout: Duration) -> Re
     let mut last_error = "Syncthing API 尚未就绪".to_string();
 
     while start.elapsed() < timeout {
-        if !is_process_running(state) {
-            return Err("Syncthing 核心未运行".to_string());
-        }
+        let process_present = is_process_running(state) || has_existing_aerosync_syncthing_process(state);
 
         match syncthing_request_empty(state, Method::GET, &["system", "ping"], &[], None).await {
             Ok(()) => return Ok(()),
-            Err(error) => last_error = error,
+            Err(error) => {
+                if !process_present {
+                    return Err("Syncthing 核心未运行".to_string());
+                }
+                last_error = error;
+            }
         }
 
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -626,7 +646,7 @@ async fn send_syncthing_request(
 ) -> Result<reqwest::Response, String> {
     let api_key = ensure_api_key(state)?;
     let url = build_api_url(path_segments, query)?;
-    let mut request = reqwest::Client::new()
+    let mut request = syncthing_client()?
         .request(method, url)
         .header("X-API-Key", api_key);
 
@@ -650,6 +670,13 @@ async fn send_syncthing_request(
     }
 
     Ok(response)
+}
+
+fn syncthing_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .map_err(|error| format!("创建 Syncthing API 客户端失败: {error}"))
 }
 
 fn build_api_url(
@@ -699,11 +726,11 @@ fn is_process_running(state: &SyncthingState) -> bool {
     }
 }
 
-async fn wait_for_process_exit(state: &SyncthingState, timeout: Duration) -> bool {
+async fn wait_for_syncthing_process_absent(state: &SyncthingState, timeout: Duration) -> bool {
     let start = std::time::Instant::now();
 
     while start.elapsed() < timeout {
-        if !is_process_running(state) {
+        if !is_process_running(state) && !has_existing_aerosync_syncthing_process(state) {
             return true;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
@@ -720,6 +747,27 @@ pub fn kill_syncthing_child(state: &SyncthingState) {
         let _ = child.wait();
     }
     *state.api_key.lock().unwrap() = None;
+}
+
+fn has_existing_aerosync_syncthing_process(state: &SyncthingState) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = Command::new("pgrep")
+            .args(["-f", &format!("syncthing.*--home={}", state.config_dir.to_string_lossy())])
+            .output()
+        {
+            return output.status.success() && !String::from_utf8_lossy(&output.stdout).trim().is_empty();
+        }
+    }
+
+    false
+}
+
+async fn detect_existing_syncthing_api(state: &SyncthingState) -> bool {
+    ensure_api_key(state).is_ok()
+        && syncthing_request_empty(state, Method::GET, &["system", "ping"], &[], None)
+            .await
+            .is_ok()
 }
 
 fn add_device_to_folder(folder: &mut Value, device_id: &str) {

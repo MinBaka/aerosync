@@ -6,7 +6,6 @@ mod syncthing;
 
 use std::sync::Mutex;
 use syncthing::{get_syncthing_status, setup_syncthing, SyncthingState};
-use tauri::Manager;
 
 #[tauri::command]
 fn minimize_window(window: tauri::Window) -> Result<(), String> {
@@ -23,7 +22,8 @@ fn toggle_maximize_window(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn close_window(window: tauri::Window) -> Result<(), String> {
+fn close_window(window: tauri::Window, state: tauri::State<SyncthingState>) -> Result<(), String> {
+    syncthing::kill_syncthing_child(&state);
     window.close().map_err(|error| error.to_string())
 }
 
@@ -80,17 +80,6 @@ fn main() {
                 setup_syncthing(&handle).await;
             });
             Ok(())
-        })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                let state: tauri::State<SyncthingState> = window.state();
-                let mut process_guard = state.process.lock().unwrap();
-                if let Some(mut child) = process_guard.take() {
-                    println!("正在停止 Syncthing 进程...");
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
-            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
