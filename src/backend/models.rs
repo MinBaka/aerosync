@@ -28,6 +28,7 @@ pub struct OperationResult {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncthingOverview {
+    pub is_downloaded: bool,
     pub running: bool,
     pub ready: bool,
     pub config: SyncthingConfig,

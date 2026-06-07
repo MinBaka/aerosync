@@ -4,6 +4,7 @@ use crate::{DeviceRow, FolderRow, TransferRow};
 use slint::SharedString;
 
 pub struct UiSnapshot {
+    pub is_downloaded: bool,
     pub is_running: bool,
     pub is_ready: bool,
     pub restart_required: bool,
@@ -146,6 +147,7 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
     );
 
     UiSnapshot {
+        is_downloaded: overview.is_downloaded,
         is_running: overview.running,
         is_ready: overview.ready,
         restart_required: overview.restart_required,

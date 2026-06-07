@@ -34,6 +34,40 @@ impl AppController {
 
     pub fn bind(&self, app: &AppWindow) {
         let controller = self.clone();
+        app.on_download_syncthing_requested(move || {
+            let weak = controller.app.clone();
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                app.set_is_downloading(true);
+                app.set_download_progress(0.0);
+            });
+
+            let service = controller.service.clone();
+            let weak_for_task = controller.app.clone();
+
+            controller.runtime.spawn(async move {
+                let result = service.download_core(move |progress| {
+                    let weak_inner = weak_for_task.clone();
+                    let _ = weak_inner.upgrade_in_event_loop(move |app| {
+                        app.set_download_progress(progress);
+                    });
+                }).await;
+
+                let _ = weak.upgrade_in_event_loop(move |app| {
+                    app.set_is_downloading(false);
+                    match result {
+                        Ok(_) => {
+                            app.set_is_syncthing_downloaded(true);
+                            app.set_success_message(shared("Syncthing 下载成功"));
+                        }
+                        Err(e) => {
+                            app.set_error_message(shared(format!("下载失败: {}", e)));
+                        }
+                    }
+                });
+            });
+        });
+
+        let controller = self.clone();
         app.on_refresh_requested(move || {
             controller.refresh();
         });
@@ -282,6 +316,7 @@ fn post_result(
 
 fn apply_overview(app: &AppWindow, overview: SyncthingOverview) {
     let snapshot = snapshot_from_overview(overview);
+    app.set_is_syncthing_downloaded(snapshot.is_downloaded);
     app.set_is_running(snapshot.is_running);
     app.set_is_ready(snapshot.is_ready);
     app.set_restart_required(snapshot.restart_required);

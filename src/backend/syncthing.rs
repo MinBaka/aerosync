@@ -45,31 +45,32 @@ impl SyncthingService {
 
     pub async fn overview(&self) -> Result<SyncthingOverview> {
         let running = self.is_child_running();
+        let is_downloaded = self.is_core_downloaded();
         if !running
             && !self.has_existing_aerosync_syncthing_process()
             && !self.detect_existing_syncthing_api().await
         {
-            return Ok(empty_overview(false, false, None));
+            return Ok(empty_overview(is_downloaded, false, false, None));
         }
 
         if let Err(error) = self.wait_for_syncthing_api(Duration::from_secs(10)).await {
-            return Ok(empty_overview(true, false, Some(error.to_string())));
+            return Ok(empty_overview(is_downloaded, true, false, Some(error.to_string())));
         }
 
         let start = Instant::now();
         let mut last_error = anyhow!("Syncthing API 数据尚未就绪");
         while start.elapsed() < Duration::from_secs(10) {
-            match self.fetch_ready_overview().await {
+            match self.fetch_ready_overview(is_downloaded).await {
                 Ok(overview) => return Ok(overview),
                 Err(error) => last_error = error,
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
 
-        Ok(empty_overview(true, false, Some(last_error.to_string())))
+        Ok(empty_overview(is_downloaded, true, false, Some(last_error.to_string())))
     }
 
-    async fn fetch_ready_overview(&self) -> Result<SyncthingOverview> {
+    async fn fetch_ready_overview(&self, is_downloaded: bool) -> Result<SyncthingOverview> {
         let config = serde_json::from_value::<SyncthingConfig>(
             self.syncthing_get(&["config"], &[]).await?,
         )
@@ -85,6 +86,7 @@ impl SyncthingService {
         let restart_required = self.get_restart_required().await.unwrap_or(false);
 
         Ok(SyncthingOverview {
+            is_downloaded,
             running: true,
             ready: true,
             config,
@@ -93,6 +95,34 @@ impl SyncthingService {
             restart_required,
             error: None,
         })
+    }
+
+    pub async fn download_core<F>(&self, progress_callback: F) -> Result<()>
+    where
+        F: FnMut(f32) + Send + 'static,
+    {
+        #[cfg(target_os = "windows")]
+        let bin_name = "syncthing.exe";
+        #[cfg(not(target_os = "windows"))]
+        let bin_name = "syncthing";
+
+        let bin_path = self.bin_dir.join(bin_name);
+        if !bin_path.exists() {
+            println!("Syncthing 核心不存在，准备下载...");
+            download_syncthing(&bin_path, progress_callback)
+                .await
+                .map_err(|error| anyhow!("下载 Syncthing 失败: {error}"))?;
+        }
+        Ok(())
+    }
+
+    pub fn is_core_downloaded(&self) -> bool {
+        #[cfg(target_os = "windows")]
+        let bin_name = "syncthing.exe";
+        #[cfg(not(target_os = "windows"))]
+        let bin_name = "syncthing";
+
+        self.bin_dir.join(bin_name).exists()
     }
 
     pub async fn start(&self) -> Result<()> {
@@ -129,10 +159,7 @@ impl SyncthingService {
 
         let bin_path = self.bin_dir.join(bin_name);
         if !bin_path.exists() {
-            println!("Syncthing 核心不存在，准备下载...");
-            download_syncthing(&bin_path)
-                .await
-                .map_err(|error| anyhow!("下载 Syncthing 失败: {error}"))?;
+            bail!("Syncthing 核心尚未下载");
         }
 
         println!("正在启动 Syncthing 进程: {:?}", bin_path);
@@ -778,8 +805,9 @@ fn normalize_required(value: &str, message: &str) -> Result<String> {
     Ok(value)
 }
 
-fn empty_overview(running: bool, ready: bool, error: Option<String>) -> SyncthingOverview {
+fn empty_overview(is_downloaded: bool, running: bool, ready: bool, error: Option<String>) -> SyncthingOverview {
     SyncthingOverview {
+        is_downloaded,
         running,
         ready,
         config: SyncthingConfig::default(),

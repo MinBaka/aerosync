@@ -5,7 +5,10 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub async fn download_syncthing(bin_path: &PathBuf) -> anyhow::Result<()> {
+pub async fn download_syncthing<F>(bin_path: &PathBuf, mut progress_callback: F) -> anyhow::Result<()>
+where
+    F: FnMut(f32) + Send + 'static,
+{
     let mut builder =
         Client::builder().user_agent("AeroSync/0.1.0 (+https://github.com/syncthing/syncthing)");
 
@@ -32,8 +35,17 @@ pub async fn download_syncthing(bin_path: &PathBuf) -> anyhow::Result<()> {
     let archive_path = download_dir.join(filename);
     let mut file = File::create(&archive_path)?;
 
+    let total_size = response.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+
     while let Some(chunk) = response.chunk().await? {
         file.write_all(&chunk)?;
+        downloaded += chunk.len() as u64;
+        if total_size > 0 {
+            progress_callback(downloaded as f32 / total_size as f32);
+        } else {
+            progress_callback(0.5); // Indeterminate
+        }
     }
 
     println!("下载完成，准备解压...");
