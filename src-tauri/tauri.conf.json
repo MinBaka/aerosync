@@ -15,7 +15,7 @@
         "title": "AeroSync",
         "width": 1024,
         "height": 768,
-        "decorations": true,
+        "decorations": false,
         "transparent": false,
         "center": true
       }
