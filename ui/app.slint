@@ -379,9 +379,6 @@ export component AppWindow inherits Window {
 
                     FlatButton { width: 56px; text: root.is_loading ? "刷新中" : "刷新"; enabled: !root.is_loading && !root.is_mutating; clicked => { root.refresh_requested(); } }
                     FlatButton { width: 108px; text: "打开 Web UI"; enabled: !root.is_mutating; clicked => { root.open_web_requested(); } }
-                    FlatButton { width: root.active_page == 3 ? 92px : 0px; visible: root.active_page == 3; primary: !root.is_running; text: "启动核心"; enabled: !root.is_running && !root.is_mutating; clicked => { root.start_core_requested(); } }
-                    FlatButton { width: root.active_page == 3 ? 92px : 0px; visible: root.active_page == 3; danger: true; text: "停止核心"; enabled: root.is_running && !root.is_mutating; clicked => { root.shutdown_core_requested(); } }
-                    FlatButton { width: root.active_page == 3 ? 92px : 0px; visible: root.active_page == 3; text: "重启核心"; enabled: root.is_running && !root.is_mutating; clicked => { root.restart_core_requested(); } }
                     FlatButton {
                         width: root.active_page == 3 ? 0px : 124px;
                         visible: root.active_page != 3;
@@ -448,6 +445,7 @@ export component AppWindow inherits Window {
                         spacing: 14px;
 
                         Rectangle {
+                            height: root.active_page == 0 ? 360px : 0px;
                             visible: root.active_page == 0;
 
                             VerticalLayout {
@@ -521,6 +519,7 @@ export component AppWindow inherits Window {
                         }
 
                         Rectangle {
+                            height: root.active_page == 1 ? 360px : 0px;
                             visible: root.active_page == 1;
 
                             VerticalLayout {
@@ -576,6 +575,7 @@ export component AppWindow inherits Window {
                         }
 
                         Rectangle {
+                            height: root.active_page == 2 ? 360px : 0px;
                             visible: root.active_page == 2;
 
                             VerticalLayout {
@@ -625,6 +625,7 @@ export component AppWindow inherits Window {
                         }
 
                         Rectangle {
+                            height: root.active_page == 3 ? 360px : 0px;
                             visible: root.active_page == 3;
 
                             VerticalLayout {

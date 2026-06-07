@@ -4,7 +4,7 @@ use super::models::{
     SyncthingOverview, SyncthingSystemStatus,
 };
 use anyhow::{anyhow, bail, Context, Result};
-use reqwest::{Method, Url};
+use reqwest::{Method, StatusCode, Url};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::{Child, Command};
@@ -14,7 +14,8 @@ use sysinfo::{ProcessesToUpdate, Signal, System};
 
 const SYNCTHING_API_URL: &str = "http://127.0.0.1:58384/rest";
 const SYNCTHING_WEB_URL: &str = "http://127.0.0.1:58384";
-const SYNCTHING_GUI_ADDRESS: &str = "127.0.0.1:58384";
+const SYNCTHING_GUI_CONFIG_ADDRESS: &str = "127.0.0.1:58384";
+const SYNCTHING_GUI_CLI_ADDRESS: &str = "http://127.0.0.1:58384";
 
 pub struct SyncthingService {
     process: Mutex<Option<Child>>,
@@ -45,32 +46,42 @@ impl SyncthingService {
     pub async fn overview(&self) -> Result<SyncthingOverview> {
         let running = self.is_child_running();
         if !running
-            && !self.detect_existing_syncthing_api().await
             && !self.has_existing_aerosync_syncthing_process()
+            && !self.detect_existing_syncthing_api().await
         {
             return Ok(empty_overview(false, false, None));
         }
 
-        if let Err(error) = self.wait_for_syncthing_api(Duration::from_secs(2)).await {
+        if let Err(error) = self.wait_for_syncthing_api(Duration::from_secs(10)).await {
             return Ok(empty_overview(true, false, Some(error.to_string())));
         }
 
-        let config = match self.syncthing_get(&["config"], &[]).await {
-            Ok(config) => serde_json::from_value::<SyncthingConfig>(config).unwrap_or_default(),
-            Err(error) => return Ok(empty_overview(true, false, Some(error.to_string()))),
-        };
-        let system_status = match self.syncthing_get(&["system", "status"], &[]).await {
-            Ok(status) => {
-                serde_json::from_value::<SyncthingSystemStatus>(status).unwrap_or_default()
+        let start = Instant::now();
+        let mut last_error = anyhow!("Syncthing API 数据尚未就绪");
+        while start.elapsed() < Duration::from_secs(10) {
+            match self.fetch_ready_overview().await {
+                Ok(overview) => return Ok(overview),
+                Err(error) => last_error = error,
             }
-            Err(error) => return Ok(empty_overview(true, false, Some(error.to_string()))),
-        };
-        let connections = match self.syncthing_get(&["system", "connections"], &[]).await {
-            Ok(connections) => {
-                serde_json::from_value::<SyncthingConnections>(connections).unwrap_or_default()
-            }
-            Err(error) => return Ok(empty_overview(true, false, Some(error.to_string()))),
-        };
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
+        Ok(empty_overview(true, false, Some(last_error.to_string())))
+    }
+
+    async fn fetch_ready_overview(&self) -> Result<SyncthingOverview> {
+        let config = serde_json::from_value::<SyncthingConfig>(
+            self.syncthing_get(&["config"], &[]).await?,
+        )
+        .unwrap_or_default();
+        let system_status = serde_json::from_value::<SyncthingSystemStatus>(
+            self.syncthing_get(&["system", "status"], &[]).await?,
+        )
+        .unwrap_or_default();
+        let connections = serde_json::from_value::<SyncthingConnections>(
+            self.syncthing_get(&["system", "connections"], &[]).await?,
+        )
+        .unwrap_or_default();
         let restart_required = self.get_restart_required().await.unwrap_or(false);
 
         Ok(SyncthingOverview {
@@ -86,7 +97,7 @@ impl SyncthingService {
 
     pub async fn start(&self) -> Result<()> {
         if self.is_child_running() {
-            self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+            self.wait_for_syncthing_api(Duration::from_secs(15)).await?;
             return Ok(());
         }
 
@@ -96,7 +107,7 @@ impl SyncthingService {
         }
 
         if self.has_existing_aerosync_syncthing_process() {
-            match self.wait_for_syncthing_api(Duration::from_secs(10)).await {
+            match self.wait_for_syncthing_api(Duration::from_secs(8)).await {
                 Ok(()) => return Ok(()),
                 Err(error) => {
                     eprintln!("检测到不可用的 AeroSync Syncthing 旧进程，准备清理后重启: {error}");
@@ -109,6 +120,7 @@ impl SyncthingService {
         *self.api_key.lock().unwrap() = None;
         std::fs::create_dir_all(&self.bin_dir).context("无法创建 Syncthing 二进制目录")?;
         std::fs::create_dir_all(&self.config_dir).context("无法创建 Syncthing 配置目录")?;
+        self.ensure_gui_address()?;
 
         #[cfg(target_os = "windows")]
         let bin_name = "syncthing.exe";
@@ -128,8 +140,10 @@ impl SyncthingService {
 
         let mut command = Command::new(&bin_path);
         command
+            .arg("serve")
             .arg(format!("--home={}", self.config_dir.to_string_lossy()))
-            .arg(format!("--gui-address={SYNCTHING_GUI_ADDRESS}"))
+            .arg(format!("--gui-address={SYNCTHING_GUI_CLI_ADDRESS}"))
+            .arg("--skip-port-probing")
             .arg("--no-browser")
             .arg("--no-restart");
 
@@ -143,8 +157,8 @@ impl SyncthingService {
         println!("Syncthing 已成功启动，PID: {}", child.id());
         *self.process.lock().unwrap() = Some(child);
 
-        self.wait_for_api_key(Duration::from_secs(30)).await?;
-        self.wait_for_syncthing_api(Duration::from_secs(30)).await?;
+        self.wait_for_api_key(Duration::from_secs(60)).await?;
+        self.wait_for_syncthing_api(Duration::from_secs(20)).await?;
         Ok(())
     }
 
@@ -486,6 +500,55 @@ impl SyncthingService {
         false
     }
 
+    fn ensure_gui_address(&self) -> Result<()> {
+        let config_file = self.config_dir.join("config.xml");
+        let Ok(content) = std::fs::read_to_string(&config_file) else {
+            return Ok(());
+        };
+
+        let Some(gui_start) = content.find("<gui") else {
+            return Ok(());
+        };
+        let Some(gui_end) = content[gui_start..].find("</gui>").map(|offset| gui_start + offset) else {
+            return Ok(());
+        };
+        let gui_section = &content[gui_start..gui_end];
+
+        let updated = if let Some(address_open_rel) = gui_section.find("<address>") {
+            let value_start = gui_start + address_open_rel + "<address>".len();
+            let Some(address_close_rel) = content[value_start..gui_end].find("</address>") else {
+                return Ok(());
+            };
+            let value_end = value_start + address_close_rel;
+            if content[value_start..value_end].trim() == SYNCTHING_GUI_CONFIG_ADDRESS {
+                return Ok(());
+            }
+
+            let mut updated = String::with_capacity(content.len());
+            updated.push_str(&content[..value_start]);
+            updated.push_str(SYNCTHING_GUI_CONFIG_ADDRESS);
+            updated.push_str(&content[value_end..]);
+            updated
+        } else {
+            let Some(open_end_rel) = gui_section.find('>') else {
+                return Ok(());
+            };
+            let insert_at = gui_start + open_end_rel + 1;
+            let mut updated = String::with_capacity(content.len() + 40);
+            updated.push_str(&content[..insert_at]);
+            updated.push_str("\n        <address>");
+            updated.push_str(SYNCTHING_GUI_CONFIG_ADDRESS);
+            updated.push_str("</address>");
+            updated.push_str(&content[insert_at..]);
+            updated
+        };
+
+        std::fs::write(&config_file, updated)
+            .with_context(|| format!("更新 Syncthing GUI 地址失败: {}", config_file.display()))?;
+        println!("已设置 Syncthing GUI 地址: {SYNCTHING_GUI_CONFIG_ADDRESS}");
+        Ok(())
+    }
+
     fn ensure_api_key(&self) -> Result<String> {
         if let Some(api_key) = self.api_key.lock().unwrap().clone() {
             if !api_key.is_empty() {
@@ -569,6 +632,9 @@ impl SyncthingService {
 
         if !status.is_success() {
             let message = response.text().await.unwrap_or_default();
+            if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+                *self.api_key.lock().unwrap() = None;
+            }
             if message.trim().is_empty() {
                 bail!("Syncthing API 返回错误状态: {status}");
             }
