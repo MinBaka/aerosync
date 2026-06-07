@@ -327,7 +327,7 @@ h1 {
   border: 1px solid #e6eaf0;
   border-radius: 9px;
   background: #ffffff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .summary-card {
