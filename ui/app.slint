@@ -641,7 +641,7 @@ export component AppWindow inherits Window {
                                     VerticalLayout {
                                         spacing: 4px;
                                         Text { text: "设置"; color: #111827; font-size: 20px; font-weight: 800; }
-                                        Text { text: "控制 Syncthing 核心和全局同步状态"; color: #64748b; font-size: 13px; }
+                                        Text { text: "控制 Syncthing 核心和全局同步状态"; color: #64748b; font-size: 13px; overflow: elide; }
                                     }
 
                                     Rectangle { }
@@ -662,7 +662,7 @@ export component AppWindow inherits Window {
                                             height: 36px;
                                             spacing: 12px;
                                             Text { width: 92px; text: "核心控制"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
-                                            Text { text: !root.is_syncthing_downloaded ? "Syncthing 核心尚未下载，请先下载。" : root.is_running ? "当前核心正在运行，可以停止或重启。" : "当前核心未运行，请先启动核心。"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                                            Text { horizontal-stretch: 1; text: !root.is_syncthing_downloaded ? "Syncthing 核心尚未下载，请先下载。" : root.is_running ? "当前核心正在运行，可以停止或重启。" : "当前核心未运行，请先启动核心。"; color: #64748b; font-size: 13px; vertical-alignment: center; overflow: elide; }
                                         }
 
                                         if !root.is_syncthing_downloaded : HorizontalLayout {
@@ -690,7 +690,7 @@ export component AppWindow inherits Window {
                                             Rectangle { }
                                         }
 
-                                        Text { text: root.is_mutating ? "正在执行操作，请稍候。" : "这些按钮会直接启动、停止或重启本机 Syncthing 核心。"; color: #94a3b8; font-size: 12px; }
+                                        Text { horizontal-stretch: 1; text: root.is_mutating ? "正在执行操作，请稍候。" : "这些按钮会直接启动、停止或重启本机 Syncthing 核心。"; color: #94a3b8; font-size: 12px; overflow: elide; }
                                     }
                                 }
 
@@ -709,7 +709,7 @@ export component AppWindow inherits Window {
                                             height: 30px;
                                             spacing: 12px;
                                             Text { width: 104px; text: "全局设备操作"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
-                                            Text { text: "一次性暂停或恢复所有远程设备。"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                                            Text { horizontal-stretch: 1; text: "一次性暂停或恢复所有远程设备。"; color: #64748b; font-size: 13px; vertical-alignment: center; overflow: elide; }
                                         }
 
                                         HorizontalLayout {
@@ -723,10 +723,10 @@ export component AppWindow inherits Window {
                                 }
 
                                 Divider { }
-                                Text { text: "本机设备 ID：" + root.local_device_id; color: #1f2937; font-size: 14px; }
-                                Text { text: "发现服务：" + root.discovery_text; color: #1f2937; font-size: 14px; }
-                                Text { text: "启动时间：" + root.start_time; color: #1f2937; font-size: 14px; }
-                                Text { text: "API 端点：" + root.api_endpoint; color: #1f2937; font-size: 14px; }
+                                Text { horizontal-stretch: 1; text: "本机设备 ID：" + root.local_device_id; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { horizontal-stretch: 1; text: "发现服务：" + root.discovery_text; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { horizontal-stretch: 1; text: "启动时间：" + root.start_time; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { horizontal-stretch: 1; text: "API 端点：" + root.api_endpoint; color: #1f2937; font-size: 14px; overflow: elide; }
                             }
                         }
                     }
