@@ -5,9 +5,9 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub async fn download_syncthing(bin_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let mut builder = Client::builder()
-        .user_agent("AeroSync/0.1.0 (+https://github.com/syncthing/syncthing)");
+pub async fn download_syncthing(bin_path: &PathBuf) -> anyhow::Result<()> {
+    let mut builder =
+        Client::builder().user_agent("AeroSync/0.1.0 (+https://github.com/syncthing/syncthing)");
 
     if let Ok(proxy_url) = env::var("HTTPS_PROXY").or_else(|_| env::var("https_proxy")) {
         println!("检测到代理：{}，将使用代理进行下载", proxy_url);
@@ -21,10 +21,12 @@ pub async fn download_syncthing(bin_path: &PathBuf) -> Result<(), Box<dyn std::e
     let mut response = client.get(&url).send().await?;
 
     if !response.status().is_success() {
-        return Err(format!("下载失败: {}", response.status()).into());
+        anyhow::bail!("下载失败: {}", response.status());
     }
 
-    let download_dir = bin_path.parent().ok_or("无效的 Syncthing 二进制路径")?;
+    let download_dir = bin_path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("无效的 Syncthing 二进制路径"))?;
     fs::create_dir_all(download_dir)?;
 
     let archive_path = download_dir.join(filename);
@@ -81,10 +83,7 @@ fn get_download_info() -> (String, String) {
     (url, filename)
 }
 
-fn extract_syncthing(
-    archive_path: &PathBuf,
-    target_dir: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn extract_syncthing(archive_path: &PathBuf, target_dir: &Path) -> anyhow::Result<()> {
     let file = File::open(archive_path)?;
 
     if archive_path.to_string_lossy().ends_with(".zip") {
@@ -96,7 +95,10 @@ fn extract_syncthing(
                 None => continue,
             };
 
-            let file_name = outpath.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+            let file_name = outpath
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default();
             if file_name == "syncthing" || file_name == "syncthing.exe" {
                 let final_bin_path = target_dir.join(file_name);
                 let mut outfile = File::create(&final_bin_path)?;
@@ -110,10 +112,15 @@ fn extract_syncthing(
         for entry in archive.entries()? {
             let mut entry = entry?;
             let path = entry.path()?.to_path_buf();
-            let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+            let file_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default();
 
             if (file_name == "syncthing" || file_name == "syncthing.exe")
-                && !path.components().any(|component| component.as_os_str() == "etc")
+                && !path
+                    .components()
+                    .any(|component| component.as_os_str() == "etc")
             {
                 entry.unpack(target_dir.join(file_name))?;
             }

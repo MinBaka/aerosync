@@ -1,0 +1,460 @@
+import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+
+export struct FolderRow {
+    id: string,
+    title: string,
+    subtitle: string,
+    shared_text: string,
+    status: string,
+    paused: bool,
+}
+
+export struct DeviceRow {
+    id: string,
+    name: string,
+    short_id: string,
+    status: string,
+    paused: bool,
+    connected: bool,
+}
+
+export struct TransferRow {
+    device_id: string,
+    short_id: string,
+    address: string,
+    connection_type: string,
+    status: string,
+    connected: bool,
+}
+
+export component AppWindow inherits Window {
+    title: "AeroSync";
+    width: 1180px;
+    height: 760px;
+    background: #f4f7fb;
+
+    in-out property <int> active_page: 0;
+    in-out property <bool> is_loading: false;
+    in-out property <bool> is_mutating: false;
+    in-out property <bool> is_running: false;
+    in-out property <bool> is_ready: false;
+    in-out property <bool> restart_required: false;
+
+    in-out property <string> status_text: "未连接";
+    in-out property <string> last_updated: "尚未刷新";
+    in-out property <string> success_message: "";
+    in-out property <string> error_message: "";
+
+    in-out property <string> folder_count_text: "0";
+    in-out property <string> folder_detail_text: "0 个正在同步";
+    in-out property <string> device_count_text: "0 / 0";
+    in-out property <string> uptime_text: "等待数据";
+    in-out property <string> traffic_text: "0 B ↓ / 0 B ↑";
+    in-out property <string> api_endpoint: "127.0.0.1:58384";
+    in-out property <string> local_device_id: "未知设备";
+    in-out property <string> discovery_text: "等待数据";
+    in-out property <string> start_time: "等待数据";
+    in-out property <string> device_choices: "";
+    in-out property <string> folder_choices: "";
+
+    in property <[FolderRow]> folders;
+    in property <[DeviceRow]> devices;
+    in property <[TransferRow]> transfers;
+
+    in-out property <bool> add_folder_dialog: false;
+    in-out property <bool> add_device_dialog: false;
+    in-out property <bool> confirm_dialog: false;
+    in-out property <string> confirm_title: "";
+    in-out property <string> confirm_message: "";
+    in-out property <string> confirm_action: "";
+    in-out property <string> confirm_target: "";
+
+    in-out property <string> folder_id: "";
+    in-out property <string> folder_label: "";
+    in-out property <string> folder_path: "";
+    in-out property <string> folder_devices: "";
+    in-out property <string> device_id: "";
+    in-out property <string> device_name: "";
+    in-out property <string> device_addresses: "dynamic";
+    in-out property <string> device_folders: "";
+
+    callback refresh_requested();
+    callback open_web_requested();
+    callback start_core_requested();
+    callback shutdown_core_requested();
+    callback restart_core_requested();
+    callback add_folder_requested(string, string, string, string);
+    callback add_device_requested(string, string, string, string);
+    callback folder_action_requested(string, string);
+    callback device_action_requested(string, string);
+    callback global_action_requested(string);
+    callback confirmed_action_requested(string, string);
+
+    HorizontalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        Rectangle {
+            width: 238px;
+            background: #101827;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 18px;
+
+                Rectangle {
+                    height: 76px;
+                    background: #172235;
+                    border-radius: 18px;
+                    HorizontalLayout {
+                        padding: 14px;
+                        spacing: 12px;
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 12px;
+                            background: #33c3ff;
+                            Text {
+                                text: "A";
+                                color: #07111f;
+                                font-size: 24px;
+                                font-weight: 800;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 2px;
+                            Text { text: "AeroSync"; color: white; font-size: 20px; font-weight: 800; }
+                            Text { text: "Syncthing 原生客户端"; color: #8ea2bf; font-size: 12px; }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 10px;
+                    Button { text: root.active_page == 0 ? "● 同步任务" : "  同步任务"; clicked => { root.active_page = 0; } }
+                    Button { text: root.active_page == 1 ? "● 设备管理" : "  设备管理"; clicked => { root.active_page = 1; } }
+                    Button { text: root.active_page == 2 ? "● 传输记录" : "  传输记录"; clicked => { root.active_page = 2; } }
+                    Button { text: root.active_page == 3 ? "● 设置" : "  设置"; clicked => { root.active_page = 3; } }
+                }
+
+                Rectangle { height: 1px; background: #27364c; }
+
+                VerticalLayout {
+                    spacing: 8px;
+                    Text { text: "Syncthing 状态"; color: #8ea2bf; font-size: 12px; }
+                    Text { text: root.status_text; color: root.is_ready ? #57d68d : #ff7f7f; font-size: 18px; font-weight: 700; }
+                    Text { text: "最后刷新：" + root.last_updated; color: #8ea2bf; font-size: 12px; }
+                    Text { text: "API：" + root.api_endpoint; color: #8ea2bf; font-size: 12px; }
+                }
+            }
+        }
+
+        Rectangle {
+            background: #f4f7fb;
+            VerticalLayout {
+                padding: 26px;
+                spacing: 18px;
+
+                Rectangle {
+                    height: 86px;
+                    background: white;
+                    border-radius: 20px;
+                    border-width: 1px;
+                    border-color: #e4ebf5;
+
+                    HorizontalLayout {
+                        padding: 20px;
+                        spacing: 16px;
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: root.active_page == 0 ? "同步任务" : root.active_page == 1 ? "设备管理" : root.active_page == 2 ? "传输记录" : "设置";
+                                color: #101827;
+                                font-size: 26px;
+                                font-weight: 800;
+                            }
+                            Text {
+                                text: root.active_page == 0 ? "管理本机同步文件夹和共享设备" : root.active_page == 1 ? "管理远程设备连接、暂停和删除" : root.active_page == 2 ? "查看当前连接和传输状态" : "控制 Syncthing 核心和全局操作";
+                                color: #61718a;
+                                font-size: 13px;
+                            }
+                        }
+
+                        Button { text: root.is_loading ? "刷新中…" : "刷新"; enabled: !root.is_loading && !root.is_mutating; clicked => { root.refresh_requested(); } }
+                        Button { text: "打开 Web UI"; enabled: !root.is_mutating; clicked => { root.open_web_requested(); } }
+                        Button {
+                            text: root.active_page == 0 ? "添加同步任务" : root.active_page == 1 ? "添加设备" : root.active_page == 2 ? "刷新连接" : "重启核心";
+                            enabled: !root.is_mutating && (root.active_page == 2 || root.active_page == 3 || root.is_ready);
+                            clicked => {
+                                if root.active_page == 0 {
+                                    root.folder_id = "";
+                                    root.folder_label = "";
+                                    root.folder_path = "";
+                                    root.folder_devices = root.device_choices;
+                                    root.add_folder_dialog = true;
+                                } else if root.active_page == 1 {
+                                    root.device_id = "";
+                                    root.device_name = "";
+                                    root.device_addresses = "dynamic";
+                                    root.device_folders = root.folder_choices;
+                                    root.add_device_dialog = true;
+                                } else if root.active_page == 2 {
+                                    root.refresh_requested();
+                                } else {
+                                    root.restart_core_requested();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 14px;
+                    Rectangle {
+                        height: 92px;
+                        background: white;
+                        border-radius: 18px;
+                        border-width: 1px;
+                        border-color: #e4ebf5;
+                        VerticalLayout { padding: 16px; spacing: 5px; Text { text: "核心状态"; color: #61718a; font-size: 12px; } Text { text: root.status_text; color: root.is_ready ? #15a866 : #df3f3f; font-size: 22px; font-weight: 800; } Text { text: root.last_updated; color: #8d9bb0; font-size: 11px; } }
+                    }
+                    Rectangle {
+                        height: 92px;
+                        background: white;
+                        border-radius: 18px;
+                        border-width: 1px;
+                        border-color: #e4ebf5;
+                        VerticalLayout { padding: 16px; spacing: 5px; Text { text: "同步文件夹"; color: #61718a; font-size: 12px; } Text { text: root.folder_count_text; color: #101827; font-size: 24px; font-weight: 800; } Text { text: root.folder_detail_text; color: #8d9bb0; font-size: 11px; } }
+                    }
+                    Rectangle {
+                        height: 92px;
+                        background: white;
+                        border-radius: 18px;
+                        border-width: 1px;
+                        border-color: #e4ebf5;
+                        VerticalLayout { padding: 16px; spacing: 5px; Text { text: "连接设备"; color: #61718a; font-size: 12px; } Text { text: root.device_count_text; color: #101827; font-size: 24px; font-weight: 800; } Text { text: "运行时长：" + root.uptime_text; color: #8d9bb0; font-size: 11px; } }
+                    }
+                    Rectangle {
+                        height: 92px;
+                        background: white;
+                        border-radius: 18px;
+                        border-width: 1px;
+                        border-color: #e4ebf5;
+                        VerticalLayout { padding: 16px; spacing: 5px; Text { text: "传输流量"; color: #61718a; font-size: 12px; } Text { text: root.traffic_text; color: #101827; font-size: 19px; font-weight: 800; } Text { text: "入站 / 出站"; color: #8d9bb0; font-size: 11px; } }
+                    }
+                }
+
+                Rectangle {
+                    visible: root.restart_required || root.success_message != "" || root.error_message != "";
+                    height: root.restart_required || root.success_message != "" || root.error_message != "" ? 42px : 0px;
+                    background: root.error_message != "" ? #fff0f0 : root.restart_required ? #fff8df : #eafff4;
+                    border-color: root.error_message != "" ? #ffbbbb : root.restart_required ? #ffd66e : #a8e8c7;
+                    border-width: 1px;
+                    border-radius: 14px;
+                    Text {
+                        x: 14px;
+                        y: 0px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: root.error_message != "" ? root.error_message : root.restart_required ? "Syncthing 提示需要重启核心才能完全应用配置。" : root.success_message;
+                        color: root.error_message != "" ? #b42323 : root.restart_required ? #9a6800 : #087a45;
+                        font-size: 13px;
+                    }
+                }
+
+                Rectangle {
+                    background: white;
+                    border-radius: 20px;
+                    border-width: 1px;
+                    border-color: #e4ebf5;
+
+                    VerticalLayout {
+                        padding: 18px;
+                        spacing: 12px;
+
+                        Rectangle {
+                            visible: root.active_page == 0;
+                            VerticalLayout {
+                                spacing: 12px;
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    Text { text: "同步文件夹"; color: #101827; font-size: 20px; font-weight: 800; }
+                                    Button { text: "扫描全部"; enabled: root.is_ready && !root.is_mutating; clicked => { root.global_action_requested("rescan-all"); } }
+                                    Button { text: "添加文件夹"; enabled: root.is_ready && !root.is_mutating; clicked => { root.folder_devices = root.device_choices; root.add_folder_dialog = true; } }
+                                }
+                                ScrollView {
+                                    VerticalLayout {
+                                        spacing: 10px;
+                                        for folder in root.folders : Rectangle {
+                                            height: 86px;
+                                            background: #f8fbff;
+                                            border-radius: 14px;
+                                            border-color: #e4ebf5;
+                                            border-width: 1px;
+                                            HorizontalLayout {
+                                                padding: 14px;
+                                                spacing: 14px;
+                                                VerticalLayout { spacing: 4px; Text { text: folder.title; color: #101827; font-size: 16px; font-weight: 800; } Text { text: folder.subtitle; color: #61718a; font-size: 12px; } }
+                                                Text { text: folder.shared_text; color: #61718a; font-size: 13px; vertical-alignment: center; }
+                                                Text { text: folder.status; color: folder.paused ? #a46b00 : #087a45; font-size: 13px; vertical-alignment: center; }
+                                                Button { text: "扫描"; enabled: root.is_ready && !root.is_mutating; clicked => { root.folder_action_requested("rescan", folder.id); } }
+                                                Button { text: folder.paused ? "恢复" : "暂停"; enabled: root.is_ready && !root.is_mutating; clicked => { root.folder_action_requested(folder.paused ? "resume" : "pause", folder.id); } }
+                                                Button { text: "删除"; enabled: !root.is_mutating; clicked => { root.confirm_title = "删除同步文件夹"; root.confirm_message = "确认从 Syncthing 配置中删除这个文件夹？本操作不会删除磁盘上的实际文件。"; root.confirm_action = "remove-folder"; root.confirm_target = folder.id; root.confirm_dialog = true; } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            visible: root.active_page == 1;
+                            VerticalLayout {
+                                spacing: 12px;
+                                HorizontalLayout { spacing: 10px; Text { text: "远程设备"; color: #101827; font-size: 20px; font-weight: 800; } Button { text: "添加设备"; enabled: root.is_ready && !root.is_mutating; clicked => { root.device_addresses = "dynamic"; root.device_folders = root.folder_choices; root.add_device_dialog = true; } } }
+                                ScrollView {
+                                    VerticalLayout {
+                                        spacing: 10px;
+                                        for device in root.devices : Rectangle {
+                                            height: 82px;
+                                            background: #f8fbff;
+                                            border-radius: 14px;
+                                            border-color: #e4ebf5;
+                                            border-width: 1px;
+                                            HorizontalLayout {
+                                                padding: 14px;
+                                                spacing: 14px;
+                                                Rectangle { width: 42px; height: 42px; border-radius: 21px; background: device.connected ? #dff8eb : #eef2f7; Text { text: device.name; color: #101827; font-size: 16px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; } }
+                                                VerticalLayout { spacing: 4px; Text { text: device.name; color: #101827; font-size: 16px; font-weight: 800; } Text { text: device.short_id; color: #61718a; font-size: 12px; } }
+                                                Text { text: device.status; color: device.connected ? #087a45 : #61718a; font-size: 13px; vertical-alignment: center; }
+                                                Button { text: device.paused ? "恢复" : "暂停"; enabled: root.is_ready && !root.is_mutating; clicked => { root.device_action_requested(device.paused ? "resume" : "pause", device.id); } }
+                                                Button { text: "删除"; enabled: !root.is_mutating; clicked => { root.confirm_title = "删除远程设备"; root.confirm_message = "确认删除该设备？它也会从所有共享文件夹中移除。"; root.confirm_action = "remove-device"; root.confirm_target = device.id; root.confirm_dialog = true; } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            visible: root.active_page == 2;
+                            VerticalLayout {
+                                spacing: 12px;
+                                HorizontalLayout { spacing: 10px; Text { text: "连接和传输"; color: #101827; font-size: 20px; font-weight: 800; } Button { text: "刷新"; enabled: !root.is_loading && !root.is_mutating; clicked => { root.refresh_requested(); } } }
+                                ScrollView {
+                                    VerticalLayout {
+                                        spacing: 10px;
+                                        for transfer in root.transfers : Rectangle {
+                                            height: 76px;
+                                            background: #f8fbff;
+                                            border-radius: 14px;
+                                            border-color: #e4ebf5;
+                                            border-width: 1px;
+                                            HorizontalLayout {
+                                                padding: 14px;
+                                                spacing: 14px;
+                                                VerticalLayout { spacing: 4px; Text { text: transfer.short_id; color: #101827; font-size: 16px; font-weight: 800; } Text { text: transfer.device_id; color: #61718a; font-size: 11px; } }
+                                                Text { text: transfer.address; color: #61718a; font-size: 13px; vertical-alignment: center; }
+                                                Text { text: transfer.connection_type; color: #61718a; font-size: 13px; vertical-alignment: center; }
+                                                Text { text: transfer.status; color: transfer.connected ? #087a45 : #61718a; font-size: 13px; vertical-alignment: center; }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            visible: root.active_page == 3;
+                            VerticalLayout {
+                                spacing: 14px;
+                                Text { text: "系统信息"; color: #101827; font-size: 20px; font-weight: 800; }
+                                HorizontalLayout { spacing: 10px; Button { text: root.is_running ? "重启核心" : "启动核心"; enabled: !root.is_mutating; clicked => { if root.is_running { root.restart_core_requested(); } else { root.start_core_requested(); } } } Button { text: "停止核心"; enabled: root.is_running && !root.is_mutating; clicked => { root.shutdown_core_requested(); } } Button { text: "暂停全部设备"; enabled: root.is_ready && !root.is_mutating; clicked => { root.global_action_requested("pause-all"); } } Button { text: "恢复全部设备"; enabled: root.is_ready && !root.is_mutating; clicked => { root.global_action_requested("resume-all"); } } }
+                                Rectangle { height: 1px; background: #e4ebf5; }
+                                Text { text: "本机设备 ID：" + root.local_device_id; color: #101827; font-size: 14px; }
+                                Text { text: "发现服务：" + root.discovery_text; color: #101827; font-size: 14px; }
+                                Text { text: "启动时间：" + root.start_time; color: #101827; font-size: 14px; }
+                                Text { text: "API 端点：" + root.api_endpoint; color: #101827; font-size: 14px; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        visible: root.add_folder_dialog || root.add_device_dialog || root.confirm_dialog;
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        background: #00000088;
+    }
+
+    Rectangle {
+        visible: root.add_folder_dialog;
+        x: (root.width - 520px) / 2;
+        y: 120px;
+        width: 520px;
+        height: 440px;
+        background: white;
+        border-radius: 20px;
+        VerticalLayout {
+            padding: 22px;
+            spacing: 12px;
+            Text { text: "添加同步文件夹"; color: #101827; font-size: 22px; font-weight: 800; }
+            LineEdit { placeholder-text: "文件夹 ID，例如 photos"; text <=> root.folder_id; }
+            LineEdit { placeholder-text: "显示名称，例如 照片同步"; text <=> root.folder_label; }
+            LineEdit { placeholder-text: "本地路径，例如 /home/user/Pictures"; text <=> root.folder_path; }
+            Text { text: "共享设备 ID（逗号分隔）"; color: #61718a; font-size: 12px; }
+            LineEdit { placeholder-text: "留空则仅添加本机"; text <=> root.folder_devices; }
+            Text { text: root.device_choices == "" ? "暂无远程设备。" : "可选设备：" + root.device_choices; color: #8d9bb0; font-size: 12px; }
+            HorizontalLayout { spacing: 10px; Button { text: "取消"; clicked => { root.add_folder_dialog = false; } } Button { text: "添加"; enabled: !root.is_mutating; clicked => { root.add_folder_requested(root.folder_id, root.folder_label, root.folder_path, root.folder_devices); root.add_folder_dialog = false; } } }
+        }
+    }
+
+    Rectangle {
+        visible: root.add_device_dialog;
+        x: (root.width - 540px) / 2;
+        y: 100px;
+        width: 540px;
+        height: 470px;
+        background: white;
+        border-radius: 20px;
+        VerticalLayout {
+            padding: 22px;
+            spacing: 12px;
+            Text { text: "添加远程设备"; color: #101827; font-size: 22px; font-weight: 800; }
+            LineEdit { placeholder-text: "设备 ID"; text <=> root.device_id; }
+            LineEdit { placeholder-text: "设备名称，例如 NAS / Laptop"; text <=> root.device_name; }
+            Text { text: "地址（dynamic 或 tcp://host:22000，逗号分隔）"; color: #61718a; font-size: 12px; }
+            LineEdit { text <=> root.device_addresses; }
+            Text { text: "共享文件夹 ID（逗号分隔）"; color: #61718a; font-size: 12px; }
+            LineEdit { placeholder-text: "留空则暂不共享"; text <=> root.device_folders; }
+            Text { text: root.folder_choices == "" ? "暂无同步文件夹。" : "可选文件夹：" + root.folder_choices; color: #8d9bb0; font-size: 12px; }
+            HorizontalLayout { spacing: 10px; Button { text: "取消"; clicked => { root.add_device_dialog = false; } } Button { text: "添加"; enabled: !root.is_mutating; clicked => { root.add_device_requested(root.device_id, root.device_name, root.device_addresses, root.device_folders); root.add_device_dialog = false; } } }
+        }
+    }
+
+    Rectangle {
+        visible: root.confirm_dialog;
+        x: (root.width - 460px) / 2;
+        y: 190px;
+        width: 460px;
+        height: 260px;
+        background: white;
+        border-radius: 20px;
+        VerticalLayout {
+            padding: 22px;
+            spacing: 14px;
+            Text { text: root.confirm_title; color: #101827; font-size: 22px; font-weight: 800; }
+            Text { text: root.confirm_message; color: #334155; font-size: 14px; }
+            Text { text: root.confirm_target; color: #61718a; font-size: 12px; }
+            HorizontalLayout { spacing: 10px; Button { text: "取消"; clicked => { root.confirm_dialog = false; } } Button { text: "确认"; enabled: !root.is_mutating; clicked => { root.confirmed_action_requested(root.confirm_action, root.confirm_target); root.confirm_dialog = false; } } }
+        }
+    }
+}

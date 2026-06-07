@@ -1,0 +1,27 @@
+[package]
+name = "aerosync"
+version = "0.1.0"
+description = "A modern high-performance Syncthing client."
+authors = ["AeroSync Contributors"]
+license = "AGPL-3.0-only"
+repository = ""
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+anyhow = "1.0"
+directories = "6.0.0"
+flate2 = "1.1.9"
+open = "5.3"
+quick-xml = "0.40.1"
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+slint = "1.8"
+sysinfo = "0.33"
+tar = "0.4.46"
+tokio = { version = "1", features = ["full"] }
+zip = "8.6.0"
+
+[build-dependencies]
+slint-build = "1.8"
