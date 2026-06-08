@@ -18,7 +18,7 @@ quick-xml = "0.40.1"
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-slint = { version = "1.8", features = ["renderer-winit-femtovg"] }
+slint = { version = "1.8", features = ["renderer-winit-skia", "renderer-winit-skia-vulkan"] }
 sysinfo = "0.33"
 tar = "0.4.46"
 tokio = { version = "1", features = ["full"] }

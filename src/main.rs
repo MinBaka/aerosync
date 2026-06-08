@@ -54,7 +54,8 @@ fn main() -> anyhow::Result<()> {
                 .upgrade()
                 .is_some_and(|app| app.get_close_to_tray())
             {
-                slint::CloseRequestResponse::HideWindow
+                let _ = app_weak.upgrade().unwrap().window().hide();
+                slint::CloseRequestResponse::KeepWindowShown
             } else {
                 let _ = slint::quit_event_loop();
                 slint::CloseRequestResponse::HideWindow

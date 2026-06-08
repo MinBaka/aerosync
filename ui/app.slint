@@ -207,7 +207,7 @@ export component AppWindow inherits Window {
     in-out property <bool> is_running: false;
     in-out property <bool> is_ready: false;
     in-out property <bool> restart_required: false;
-    in-out property <bool> close_to_tray: true;
+    in-out property <bool> close_to_tray: false;
     in-out property <bool> is_downloading: false;
     in-out property <float> download_progress: 0.0;
     in-out property <bool> is_syncthing_downloaded: false;
@@ -729,15 +729,15 @@ export component AppWindow inherits Window {
                                         HorizontalLayout {
                                             height: 36px;
                                             spacing: 12px;
-                                            Text { width: 104px; text: "关闭到托盘"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
+                                            Text { width: 104px; text: "关闭托盘"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
                                             Rectangle { vertical-stretch: 1; }
                                             Rectangle {
                                                 width: 44px; height: 24px; border-radius: 12px;
-                                                background: root.close_to_tray ? #2563eb : #cbd5e1;
+                                                background: root.close_to_tray ? #cbd5e1 : #2563eb;
                                                 Rectangle {
                                                     width: 20px; height: 20px; border-radius: 10px;
                                                     background: #ffffff;
-                                                    x: root.close_to_tray ? 22px : 2px;
+                                                    x: root.close_to_tray ? 2px : 22px;
                                                     y: 2px;
                                                 }
                                                 TouchArea { clicked => { root.close_to_tray = !root.close_to_tray; } }
