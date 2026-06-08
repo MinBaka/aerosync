@@ -121,6 +121,7 @@ dependencies = [
  "directories",
  "flate2",
  "gtk",
+ "image",
  "open",
  "quick-xml 0.40.1",
  "reqwest",
