@@ -34,8 +34,38 @@ pub struct SyncthingOverview {
     pub config: SyncthingConfig,
     pub system_status: SyncthingSystemStatus,
     pub connections: SyncthingConnections,
+    #[serde(default)]
+    pub folder_statuses: std::collections::HashMap<String, FolderStatus>,
+    #[serde(default)]
+    pub device_completions: std::collections::HashMap<String, DeviceCompletion>,
     pub restart_required: bool,
     pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderStatus {
+    #[serde(default)]
+    pub state: String,
+    #[serde(default)]
+    pub need_bytes: u64,
+    #[serde(default)]
+    pub in_sync_bytes: u64,
+    #[serde(default)]
+    pub global_bytes: u64,
+    #[serde(flatten)]
+    pub raw: serde_json::Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceCompletion {
+    #[serde(default)]
+    pub completion: f64,
+    #[serde(default)]
+    pub need_bytes: u64,
+    #[serde(flatten)]
+    pub raw: serde_json::Map<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -45,6 +75,19 @@ pub struct SyncthingConfig {
     pub folders: Vec<SyncthingFolder>,
     #[serde(default)]
     pub devices: Vec<SyncthingDevice>,
+    #[serde(default)]
+    pub options: SyncthingOptions,
+    #[serde(flatten)]
+    pub raw: serde_json::Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncthingOptions {
+    #[serde(default)]
+    pub max_recv_kbps: i64,
+    #[serde(default)]
+    pub max_send_kbps: i64,
     #[serde(flatten)]
     pub raw: serde_json::Map<String, Value>,
 }

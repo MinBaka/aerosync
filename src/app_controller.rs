@@ -112,8 +112,8 @@ impl AppController {
                 path: path.to_string(),
                 device_ids: split_ids(&device_ids),
             };
-            controller.run_mutation("添加文件夹", move |service| async move {
-                Ok(Some(service.add_folder(request).await?))
+            controller.run_mutation("添加/编辑文件夹", move |service| async move {
+                Ok(Some(service.edit_folder(request).await?))
             });
         });
 
@@ -125,8 +125,8 @@ impl AppController {
                 addresses: parse_addresses(&addresses),
                 folder_ids: split_ids(&folder_ids),
             };
-            controller.run_mutation("添加设备", move |service| async move {
-                Ok(Some(service.add_device(request).await?))
+            controller.run_mutation("添加/编辑设备", move |service| async move {
+                Ok(Some(service.edit_device(request).await?))
             });
         });
 
@@ -187,6 +187,36 @@ impl AppController {
                     _ => bail!("未知全局操作: {action}"),
                 };
                 Ok(Some(result))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_get_folder_ignores_requested(move |folder_id| {
+            let folder_id = folder_id.to_string();
+            let weak = controller.app.clone();
+            let service = controller.service.clone();
+            controller.runtime.spawn(async move {
+                let ignores_result = service.get_folder_ignores(&folder_id).await;
+                let _ = weak.upgrade_in_event_loop(move |app| {
+                    if let Ok(ignores) = ignores_result {
+                        app.set_ignores_text(shared(ignores));
+                    }
+                });
+            });
+        });
+
+        let controller = self.clone();
+        app.on_set_folder_ignores_requested(move |folder_id, ignores| {
+            let folder_id = folder_id.to_string();
+            let ignores = ignores.to_string();
+            controller.run_mutation("保存忽略模式", move |service| async move {
+                Ok(Some(service.set_folder_ignores(&folder_id, &ignores).await?))
+            });
+        });
+            let recv_kbps = recv.parse::<i64>().unwrap_or(0);
+            let send_kbps = send.parse::<i64>().unwrap_or(0);
+            controller.run_mutation("应用网络限速", move |service| async move {
+                Ok(Some(service.set_rate_limits(recv_kbps, send_kbps).await?))
             });
         });
 
@@ -333,6 +363,8 @@ fn apply_overview(app: &AppWindow, overview: SyncthingOverview) {
     app.set_start_time(shared(snapshot.start_time));
     app.set_device_choices(shared(snapshot.device_choices));
     app.set_folder_choices(shared(snapshot.folder_choices));
+    app.set_config_max_recv_kbps(shared(snapshot.config_max_recv_kbps));
+    app.set_config_max_send_kbps(shared(snapshot.config_max_send_kbps));
     app.set_folders(model(snapshot.folders));
     app.set_devices(model(snapshot.devices));
     app.set_transfers(model(snapshot.transfers));

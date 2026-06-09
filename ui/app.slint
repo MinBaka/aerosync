@@ -8,6 +8,8 @@ export struct FolderRow {
     shared_text: string,
     status: string,
     paused: bool,
+    completion_pct: float,
+    need_bytes_text: string,
 }
 
 export struct DeviceRow {
@@ -17,6 +19,8 @@ export struct DeviceRow {
     status: string,
     paused: bool,
     connected: bool,
+    completion_pct: float,
+    need_bytes_text: string,
 }
 
 export struct TransferRow {
@@ -250,12 +254,16 @@ export component AppWindow inherits Window {
     in-out property <string> device_addresses: "dynamic";
     in-out property <string> device_folders: "";
 
+    in-out property <string> config_max_recv_kbps: "";
+    in-out property <string> config_max_send_kbps: "";
+
     callback refresh_requested();
     callback download_syncthing_requested();
     callback open_web_requested();
     callback start_core_requested();
     callback shutdown_core_requested();
     callback restart_core_requested();
+    callback set_rate_limits_requested(string, string);
     callback add_folder_requested(string, string, string, string);
     callback add_device_requested(string, string, string, string);
     callback folder_action_requested(string, string);
@@ -501,8 +509,16 @@ export component AppWindow inherits Window {
                                                     horizontal-stretch: 1;
                                                     padding-top: 11px;
                                                     spacing: 5px;
-                                                    Text { text: folder.title; color: #1f2937; font-size: 15px; font-weight: 800; overflow: elide; }
-                                                    Text { text: folder.subtitle; color: #64748b; font-size: 13px; overflow: elide; }
+                                                    HorizontalLayout {
+                                                        spacing: 8px;
+                                                        Text { text: folder.title; color: #1f2937; font-size: 15px; font-weight: 800; overflow: elide; }
+                                                        if folder.completion_pct < 1.0 : Text { text: round(folder.completion_pct * 100) + "%"; color: #2563eb; font-size: 13px; font-weight: 800; vertical-alignment: bottom; }
+                                                    }
+                                                    HorizontalLayout {
+                                                        spacing: 8px;
+                                                        Text { text: folder.subtitle; color: #64748b; font-size: 13px; overflow: elide; }
+                                                        if folder.need_bytes_text != "" : Text { text: folder.need_bytes_text; color: #f59e0b; font-size: 12px; }
+                                                    }
                                                 }
 
                                                 Text { width: 110px; text: folder.shared_text; color: #475569; font-size: 14px; vertical-alignment: center; }
@@ -567,8 +583,21 @@ export component AppWindow inherits Window {
                                             background: #ffffff;
                                             HorizontalLayout {
                                                 spacing: 0px;
-                                                Text { horizontal-stretch: 1; text: device.name; color: #1f2937; font-size: 15px; font-weight: 800; vertical-alignment: center; overflow: elide; }
-                                                Text { width: 130px; text: device.short_id; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                                                VerticalLayout {
+                                                    horizontal-stretch: 1;
+                                                    padding-top: 11px;
+                                                    spacing: 5px;
+                                                    HorizontalLayout {
+                                                        spacing: 8px;
+                                                        Text { text: device.name; color: #1f2937; font-size: 15px; font-weight: 800; overflow: elide; }
+                                                        if device.completion_pct < 1.0 : Text { text: round(device.completion_pct * 100) + "%"; color: #2563eb; font-size: 13px; font-weight: 800; vertical-alignment: bottom; }
+                                                    }
+                                                    HorizontalLayout {
+                                                        spacing: 8px;
+                                                        Text { text: device.short_id; color: #64748b; font-size: 13px; overflow: elide; }
+                                                        if device.need_bytes_text != "" : Text { text: device.need_bytes_text; color: #f59e0b; font-size: 12px; }
+                                                    }
+                                                }
                                                 Rectangle { width: 110px; Pill { y: 22px; text: device.status; good: device.connected && !device.paused; } }
                                                 HorizontalLayout {
                                                     width: 146px;
@@ -701,7 +730,7 @@ export component AppWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 156px;
+                                    height: 202px;
                                     background: #f8fafc;
                                     border-radius: 8px;
                                     border-width: 1px;
@@ -710,6 +739,29 @@ export component AppWindow inherits Window {
                                     VerticalLayout {
                                         padding: 12px;
                                         spacing: 8px;
+
+                                        HorizontalLayout {
+                                            height: 46px;
+                                            spacing: 12px;
+                                            Text { width: 104px; text: "网络限速"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
+                                            VerticalLayout {
+                                                vertical-stretch: 1;
+                                                padding-top: 5px;
+                                                padding-bottom: 5px;
+                                                LineEdit { placeholder-text: "接收限制 (Kbps)，0 为不限"; text <=> root.config_max_recv_kbps; }
+                                            }
+                                            VerticalLayout {
+                                                vertical-stretch: 1;
+                                                padding-top: 5px;
+                                                padding-bottom: 5px;
+                                                LineEdit { placeholder-text: "发送限制 (Kbps)，0 为不限"; text <=> root.config_max_send_kbps; }
+                                            }
+                                            VerticalLayout {
+                                                padding-top: 5px;
+                                                padding-bottom: 5px;
+                                                FlatButton { width: 80px; text: "应用"; enabled: root.is_ready && !root.is_mutating; clicked => { root.set_rate_limits_requested(root.config_max_recv_kbps, root.config_max_send_kbps); } }
+                                            }
+                                        }
 
                                         HorizontalLayout {
                                             height: 36px;

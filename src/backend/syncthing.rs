@@ -83,6 +83,35 @@ impl SyncthingService {
             self.syncthing_get(&["system", "connections"], &[]).await?,
         )
         .unwrap_or_default();
+        let mut folder_statuses = std::collections::HashMap::new();
+        for folder in &config.folders {
+            let status = serde_json::from_value::<FolderStatus>(
+                self.syncthing_get(&["db", "status"], &[("folder", folder.id.clone())])
+                    .await
+                    .unwrap_or_else(|_| json!({})),
+            )
+            .unwrap_or_default();
+            folder_statuses.insert(folder.id.clone(), status);
+        }
+
+        let mut device_completions = std::collections::HashMap::new();
+        let my_id = system_status.my_id.clone();
+        for device in &config.devices {
+            if device.device_id == my_id {
+                continue;
+            }
+            let completion = serde_json::from_value::<DeviceCompletion>(
+                self.syncthing_get(
+                    &["db", "completion"],
+                    &[("device", device.device_id.clone())],
+                )
+                .await
+                .unwrap_or_else(|_| json!({})),
+            )
+            .unwrap_or_default();
+            device_completions.insert(device.device_id.clone(), completion);
+        }
+
         let restart_required = self.get_restart_required().await.unwrap_or(false);
 
         Ok(SyncthingOverview {
@@ -92,6 +121,8 @@ impl SyncthingService {
             config,
             system_status,
             connections,
+            folder_statuses,
+            device_completions,
             restart_required,
             error: None,
         })
@@ -216,6 +247,18 @@ impl SyncthingService {
         bail!("Syncthing 仍在运行，但不是 AeroSync 本轮启动的进程，请稍后再试或手动结束旧进程")
     }
 
+    pub async fn set_rate_limits(&self, recv_kbps: i64, send_kbps: i64) -> Result<OperationResult> {
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+        self.syncthing_request_empty(
+            Method::PATCH,
+            &["config", "options"],
+            &[],
+            Some(json!({ "maxRecvKbps": recv_kbps, "maxSendKbps": send_kbps })),
+        )
+        .await?;
+        self.operation_result().await
+    }
+
     pub async fn restart(&self) -> Result<()> {
         self.shutdown().await?;
         self.start().await
@@ -266,6 +309,77 @@ impl SyncthingService {
 
         self.syncthing_request_empty(Method::POST, &["config", "folders"], &[], Some(folder))
             .await?;
+
+        self.operation_result().await
+    }
+
+    pub async fn get_folder_ignores(&self, folder_id: &str) -> Result<String> {
+        let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+        let value = self.syncthing_get(&["db", "ignores"], &[("folder", folder_id)]).await?;
+
+        let ignore_lines = value
+            .get("ignore")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .unwrap_or_default();
+
+        Ok(ignore_lines)
+    }
+
+    pub async fn set_folder_ignores(&self, folder_id: &str, ignores: &str) -> Result<OperationResult> {
+        let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let lines: Vec<String> = ignores.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+
+        self.syncthing_request_empty(
+            Method::POST,
+            &["db", "ignores"],
+            &[("folder", folder_id)],
+            Some(json!({ "ignore": lines })),
+        )
+        .await?;
+
+        self.operation_result().await
+    }
+
+    pub async fn edit_folder(&self, request: AddFolderRequest) -> Result<OperationResult> {
+        let folder_id = normalize_required(&request.id, "文件夹 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let mut folder = self
+            .syncthing_get(&["config", "folders", &folder_id], &[])
+            .await?;
+
+        let my_id = self.get_my_device_id().await.unwrap_or_default();
+        let mut device_ids = Vec::new();
+
+        if !my_id.is_empty() {
+            push_unique(&mut device_ids, my_id);
+        }
+        for device_id in request.device_ids {
+            push_unique(&mut device_ids, device_id);
+        }
+
+        folder["label"] = json!(request.label.trim());
+        folder["devices"] = json!(device_ids
+            .into_iter()
+            .map(|device_id| json!({ "deviceID": device_id }))
+            .collect::<Vec<_>>());
+
+        self.syncthing_request_empty(
+            Method::PUT,
+            &["config", "folders", &folder_id],
+            &[],
+            Some(folder),
+        )
+        .await?;
 
         self.operation_result().await
     }
@@ -359,6 +473,55 @@ impl SyncthingService {
             )
             .await?;
         }
+
+        self.operation_result().await
+    }
+
+    pub async fn edit_device(&self, request: AddDeviceRequest) -> Result<OperationResult> {
+        let device_id = normalize_required(&request.device_id, "设备 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let mut config = self.syncthing_get(&["config"], &[]).await?;
+
+        let mut addresses = request
+            .addresses
+            .into_iter()
+            .map(|address| address.trim().to_string())
+            .filter(|address| !address.is_empty())
+            .collect::<Vec<_>>();
+
+        if addresses.is_empty() {
+            addresses.push("dynamic".to_string());
+        }
+
+        if let Some(devices) = config.get_mut("devices").and_then(Value::as_array_mut) {
+            for device in devices {
+                if device.get("deviceID").and_then(Value::as_str) == Some(&device_id) {
+                    device["name"] = json!(request.name.trim());
+                    device["addresses"] = json!(addresses);
+                }
+            }
+        }
+
+        if let Some(folders) = config.get_mut("folders").and_then(Value::as_array_mut) {
+            for folder in folders {
+                let folder_id_str = folder.get("id").and_then(Value::as_str).unwrap_or_default();
+                let should_share = request.folder_ids.iter().any(|id| id == folder_id_str);
+
+                if let Some(devices) = folder.get_mut("devices").and_then(Value::as_array_mut) {
+                    let has_device = devices.iter().any(|d| d.get("deviceID").and_then(Value::as_str) == Some(&device_id));
+
+                    if should_share && !has_device {
+                        devices.push(json!({ "deviceID": device_id }));
+                    } else if !should_share && has_device {
+                        devices.retain(|d| d.get("deviceID").and_then(Value::as_str) != Some(&device_id));
+                    }
+                }
+            }
+        }
+
+        self.syncthing_request_empty(Method::PUT, &["config"], &[], Some(config))
+            .await?;
 
         self.operation_result().await
     }
@@ -805,7 +968,12 @@ fn normalize_required(value: &str, message: &str) -> Result<String> {
     Ok(value)
 }
 
-fn empty_overview(is_downloaded: bool, running: bool, ready: bool, error: Option<String>) -> SyncthingOverview {
+fn empty_overview(
+    is_downloaded: bool,
+    running: bool,
+    ready: bool,
+    error: Option<String>,
+) -> SyncthingOverview {
     SyncthingOverview {
         is_downloaded,
         running,
@@ -813,6 +981,8 @@ fn empty_overview(is_downloaded: bool, running: bool, ready: bool, error: Option
         config: SyncthingConfig::default(),
         system_status: SyncthingSystemStatus::default(),
         connections: SyncthingConnections::default(),
+        folder_statuses: std::collections::HashMap::new(),
+        device_completions: std::collections::HashMap::new(),
         restart_required: false,
         error,
     }

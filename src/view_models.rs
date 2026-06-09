@@ -23,6 +23,8 @@ pub struct UiSnapshot {
     pub folders: Vec<FolderRow>,
     pub devices: Vec<DeviceRow>,
     pub transfers: Vec<TransferRow>,
+    pub config_max_recv_kbps: String,
+    pub config_max_send_kbps: String,
 }
 
 pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
@@ -37,6 +39,39 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
                 .iter()
                 .filter(|device| device.device_id != local_device_id)
                 .count();
+
+            let folder_status = overview.folder_statuses.get(&folder.id);
+            let state = folder_status.map(|s| s.state.as_str()).unwrap_or("unknown");
+            let need_bytes = folder_status.map(|s| s.need_bytes).unwrap_or(0);
+            let global_bytes = folder_status.map(|s| s.global_bytes).unwrap_or(0);
+
+            let mut status_str = if folder.paused {
+                "已暂停".to_string()
+            } else if state == "idle" {
+                "已同步".to_string()
+            } else if state == "syncing" {
+                "同步中".to_string()
+            } else if state == "scanning" {
+                "扫描中".to_string()
+            } else if state == "error" {
+                "错误".to_string()
+            } else {
+                state.to_string()
+            };
+
+            let completion_pct = if global_bytes == 0 {
+                1.0
+            } else {
+                let in_sync = global_bytes.saturating_sub(need_bytes);
+                in_sync as f32 / global_bytes as f32
+            };
+
+            let need_bytes_text = if need_bytes > 0 {
+                format!("剩余 {}", format_bytes(need_bytes))
+            } else {
+                "".to_string()
+            };
+
             FolderRow {
                 id: shared(folder.id.clone()),
                 title: shared(if folder.label.trim().is_empty() {
@@ -50,12 +85,10 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
                     folder.path.clone()
                 }),
                 shared_text: shared(format!("{remote_shared} 台")),
-                status: shared(if folder.paused {
-                    "已暂停"
-                } else {
-                    "同步中"
-                }),
+                status: shared(status_str),
                 paused: folder.paused,
+                completion_pct,
+                need_bytes_text: shared(need_bytes_text),
             }
         })
         .collect::<Vec<_>>();
@@ -91,12 +124,27 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
             } else {
                 device.name.clone()
             };
+
+            let completion_info = overview.device_completions.get(&device.device_id);
+            let completion_pct = completion_info.map(|c| c.completion as f32 / 100.0).unwrap_or(1.0);
+            let need_bytes = completion_info.map(|c| c.need_bytes).unwrap_or(0);
+
+            let need_bytes_text = if need_bytes > 0 && connected {
+                format!("剩余 {}", format_bytes(need_bytes))
+            } else {
+                "".to_string()
+            };
+
             DeviceRow {
                 id: shared(device.device_id.clone()),
                 name: shared(name),
                 short_id: shared(short_id(&device.device_id)),
                 status: shared(if connected {
-                    "在线"
+                    if completion_pct < 1.0 {
+                        "同步中"
+                    } else {
+                        "在线"
+                    }
                 } else if device.paused {
                     "已暂停"
                 } else {
@@ -104,6 +152,8 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
                 }),
                 paused: device.paused,
                 connected,
+                completion_pct,
+                need_bytes_text: shared(need_bytes_text),
             }
         })
         .collect::<Vec<_>>();
@@ -194,6 +244,8 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
         folders,
         devices,
         transfers,
+        config_max_recv_kbps: if overview.config.options.max_recv_kbps == 0 { "".to_string() } else { overview.config.options.max_recv_kbps.to_string() },
+        config_max_send_kbps: if overview.config.options.max_send_kbps == 0 { "".to_string() } else { overview.config.options.max_send_kbps.to_string() },
     }
 }
 
