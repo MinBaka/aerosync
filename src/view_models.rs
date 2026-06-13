@@ -25,6 +25,14 @@ pub struct UiSnapshot {
     pub transfers: Vec<TransferRow>,
     pub config_max_recv_kbps: String,
     pub config_max_send_kbps: String,
+
+    // Global settings
+    pub global_discovery_enabled: bool,
+    pub local_discovery_enabled: bool,
+    pub global_announce_enabled: bool,
+    pub nat_enabled: bool,
+    pub reconnection_interval: i32,
+    pub max_connections: i32,
 }
 
 pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
@@ -256,6 +264,12 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
         } else {
             overview.config.options.max_send_kbps.to_string()
         },
+        global_discovery_enabled: overview.config.options.global_announce_enabled.unwrap_or(true),
+        local_discovery_enabled: overview.config.options.local_announce_enabled.unwrap_or(true),
+        global_announce_enabled: overview.config.options.global_announce_enabled.unwrap_or(true),
+        nat_enabled: overview.config.options.nat_enabled.unwrap_or(true),
+        reconnection_interval: overview.config.options.reconnection_interval_s.unwrap_or(60),
+        max_connections: overview.config.options.connection_limit_max.unwrap_or(0),
     }
 }
 

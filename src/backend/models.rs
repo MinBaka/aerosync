@@ -119,6 +119,16 @@ pub struct SyncthingOptions {
     pub max_recv_kbps: i64,
     #[serde(default)]
     pub max_send_kbps: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub global_announce_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_announce_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nat_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reconnection_interval_s: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_limit_max: Option<i32>,
     #[serde(flatten)]
     pub raw: serde_json::Map<String, Value>,
 }

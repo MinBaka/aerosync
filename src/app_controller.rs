@@ -281,6 +281,31 @@ impl AppController {
         });
 
         let controller = self.clone();
+        app.on_save_global_settings_requested(move || {
+            let weak = controller.app.clone();
+            let ctrl = controller.clone();
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                let global_discovery = app.get_global_discovery_enabled();
+                let local_discovery = app.get_local_discovery_enabled();
+                let global_announce = app.get_global_announce_enabled();
+                let nat_enabled = app.get_nat_enabled();
+                let reconnection_interval = app.get_reconnection_interval();
+                let max_connections = app.get_max_connections();
+
+                ctrl.run_mutation("保存全局设置", move |service| async move {
+                    Ok(Some(service.save_global_settings(
+                        global_discovery,
+                        local_discovery,
+                        global_announce,
+                        nat_enabled,
+                        reconnection_interval,
+                        max_connections,
+                    ).await?))
+                });
+            });
+        });
+
+        let controller = self.clone();
         app.on_set_rate_limits_requested(move |recv, send| {
             let recv_kbps = recv.parse::<i64>().unwrap_or(0);
             let send_kbps = send.parse::<i64>().unwrap_or(0);
@@ -446,6 +471,12 @@ fn apply_overview(app: &AppWindow, overview: SyncthingOverview) {
     app.set_folder_choices(shared(snapshot.folder_choices));
     app.set_config_max_recv_kbps(shared(snapshot.config_max_recv_kbps));
     app.set_config_max_send_kbps(shared(snapshot.config_max_send_kbps));
+    app.set_global_discovery_enabled(snapshot.global_discovery_enabled);
+    app.set_local_discovery_enabled(snapshot.local_discovery_enabled);
+    app.set_global_announce_enabled(snapshot.global_announce_enabled);
+    app.set_nat_enabled(snapshot.nat_enabled);
+    app.set_reconnection_interval(snapshot.reconnection_interval);
+    app.set_max_connections(snapshot.max_connections);
     app.set_folders(model(snapshot.folders));
     app.set_devices(model(snapshot.devices));
     app.set_transfers(model(snapshot.transfers));
