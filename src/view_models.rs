@@ -297,7 +297,7 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
         }).collect(),
         has_update: overview.upgrade_status.as_ref().map(|s| s.newer).unwrap_or(false),
         latest_version: overview.upgrade_status.as_ref().map(|s| s.latest.clone()).unwrap_or_default(),
-        auto_upgrade_enabled: overview.config.options.auto_upgrade_interval_h.unwrap_or(12) > 0,
+        auto_upgrade_enabled: overview.config.options.auto_upgrade_interval_h.unwrap_or(24) > 0,
     }
 }
 

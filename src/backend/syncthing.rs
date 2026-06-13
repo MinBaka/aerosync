@@ -309,7 +309,7 @@ impl SyncthingService {
 
     pub async fn set_auto_upgrade(&self, enabled: bool) -> Result<OperationResult> {
         self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
-        let interval = if enabled { 12 } else { 0 };
+        let interval = if enabled { 24 } else { 0 };
         self.syncthing_request_empty(
             Method::PATCH,
             &["config", "options"],
