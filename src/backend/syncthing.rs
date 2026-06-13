@@ -79,10 +79,16 @@ impl SyncthingService {
         let config =
             serde_json::from_value::<SyncthingConfig>(self.syncthing_get(&["config"], &[]).await?)
                 .unwrap_or_default();
-        let system_status = serde_json::from_value::<SyncthingSystemStatus>(
+        let mut system_status = serde_json::from_value::<SyncthingSystemStatus>(
             self.syncthing_get(&["system", "status"], &[]).await?,
         )
         .unwrap_or_default();
+
+        // Ensure my_id is populated even if parsing fails for some reason
+        if system_status.my_id.is_empty() {
+            system_status.my_id = self.get_my_device_id().await.unwrap_or_default();
+        }
+
         let connections = serde_json::from_value::<SyncthingConnections>(
             self.syncthing_get(&["system", "connections"], &[]).await?,
         )

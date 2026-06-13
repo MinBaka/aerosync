@@ -213,7 +213,7 @@ pub struct SyncthingDevice {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncthingSystemStatus {
-    #[serde(default)]
+    #[serde(default, rename = "myID")]
     pub my_id: String,
     #[serde(default)]
     pub discovery_enabled: bool,
