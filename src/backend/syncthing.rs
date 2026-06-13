@@ -316,6 +316,29 @@ impl SyncthingService {
             .map(|device_id| json!({ "deviceID": device_id }))
             .collect::<Vec<_>>());
 
+        // Apply advanced settings
+        if let Some(folder_type) = request.folder_type {
+            folder["type"] = json!(folder_type);
+        }
+        if let Some(rescan_interval) = request.rescan_interval_s {
+            folder["rescanIntervalS"] = json!(rescan_interval);
+        }
+        if let Some(fs_watcher) = request.fs_watcher_enabled {
+            folder["fsWatcherEnabled"] = json!(fs_watcher);
+        }
+        if let Some(ignore_perms) = request.ignore_perms {
+            folder["ignorePerms"] = json!(ignore_perms);
+        }
+        if let Some(ignore_delete) = request.ignore_delete {
+            folder["ignoreDelete"] = json!(ignore_delete);
+        }
+        if let Some(versioning) = request.versioning {
+            folder["versioning"] = json!({
+                "type": versioning.versioning_type,
+                "params": versioning.params,
+            });
+        }
+
         self.syncthing_request_empty(Method::POST, &["config", "folders"], &[], Some(folder))
             .await?;
 
@@ -391,6 +414,35 @@ impl SyncthingService {
             .into_iter()
             .map(|device_id| json!({ "deviceID": device_id }))
             .collect::<Vec<_>>());
+
+        // Apply advanced settings
+        if let Some(folder_type) = request.folder_type {
+            folder["type"] = json!(folder_type);
+        }
+        if let Some(rescan_interval) = request.rescan_interval_s {
+            folder["rescanIntervalS"] = json!(rescan_interval);
+        }
+        if let Some(fs_watcher) = request.fs_watcher_enabled {
+            folder["fsWatcherEnabled"] = json!(fs_watcher);
+        }
+        if let Some(ignore_perms) = request.ignore_perms {
+            folder["ignorePerms"] = json!(ignore_perms);
+        }
+        if let Some(ignore_delete) = request.ignore_delete {
+            folder["ignoreDelete"] = json!(ignore_delete);
+        }
+        if let Some(versioning) = request.versioning {
+            folder["versioning"] = json!({
+                "type": versioning.versioning_type,
+                "params": versioning.params,
+            });
+        } else {
+            // If versioning is None, disable it
+            folder["versioning"] = json!({
+                "type": "",
+                "params": {},
+            });
+        }
 
         self.syncthing_request_empty(
             Method::PUT,

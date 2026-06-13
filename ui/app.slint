@@ -211,6 +211,36 @@ component Divider inherits Rectangle {
     background: #e5e7eb;
 }
 
+component OptionButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected: false;
+    callback clicked();
+
+    height: 36px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: root.selected ? #2563eb : #cbd5e1;
+    background: root.selected ? #eff6ff : #ffffff;
+
+    animate background { duration: 150ms; easing: ease-in-out; }
+    animate border-color { duration: 150ms; easing: ease-in-out; }
+
+    Text {
+        text: root.text;
+        color: root.selected ? #2563eb : #64748b;
+        font-size: 13px;
+        font-weight: root.selected ? 600 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+
+        animate color { duration: 150ms; easing: ease-in-out; }
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
 export component AppWindow inherits Window {
     title: "AeroSync";
     default-font-family: "HarmonyOS Sans SC";
@@ -270,6 +300,13 @@ export component AppWindow inherits Window {
     in-out property <string> folder_label: "";
     in-out property <string> folder_path: "";
     in-out property <string> folder_devices: "";
+    in-out property <string> folder_type: "sendreceive";
+    in-out property <int> folder_rescan_interval: 3600;
+    in-out property <bool> folder_fs_watcher: true;
+    in-out property <bool> folder_ignore_perms: false;
+    in-out property <bool> folder_ignore_delete: false;
+    in-out property <string> folder_versioning_type: "none";
+    in-out property <string> folder_versioning_params: "";
     in-out property <string> device_id: "";
     in-out property <string> device_name: "";
     in-out property <string> device_addresses: "dynamic";
@@ -287,9 +324,9 @@ export component AppWindow inherits Window {
     callback set_rate_limits_requested(string, string);
     callback get_folder_ignores_requested(string);
     callback set_folder_ignores_requested(string, string);
-    callback edit_folder_requested(string, string, string, string);
+    callback edit_folder_requested(string, string, string, string, string, int, bool, bool, bool, string);
     callback edit_device_requested(string, string, string, string);
-    callback add_folder_requested(string, string, string, string);
+    callback add_folder_requested(string, string, string, string, string, int, bool, bool, bool, string);
     callback add_device_requested(string, string, string, string);
     callback folder_action_requested(string, string);
     callback device_action_requested(string, string);
@@ -888,10 +925,10 @@ export component AppWindow inherits Window {
 
     Rectangle {
         visible: root.add_folder_dialog || root.edit_folder_dialog;
-        x: (root.width - 500px) / 2;
-        y: 112px;
-        width: 500px;
-        height: 400px;
+        x: (root.width - 600px) / 2;
+        y: 60px;
+        width: 600px;
+        height: 620px;
         background: #ffffff;
         border-radius: 12px;
         opacity: root.add_folder_dialog || root.edit_folder_dialog ? 1.0 : 0.0;
@@ -903,12 +940,148 @@ export component AppWindow inherits Window {
             padding: 22px;
             spacing: 12px;
             Text { text: root.edit_folder_dialog ? "编辑同步文件夹" : "添加同步文件夹"; color: #111827; font-size: 21px; font-weight: 800; }
-            LineEdit { placeholder-text: "文件夹 ID，例如 photos"; text <=> root.folder_id; enabled: !root.edit_folder_dialog; }
-            LineEdit { placeholder-text: "显示名称，例如 照片同步"; text <=> root.folder_label; }
-            LineEdit { placeholder-text: "本地路径，例如 /home/user/Pictures"; text <=> root.folder_path; enabled: !root.edit_folder_dialog; }
-            Text { text: "共享设备 ID（逗号分隔）"; color: #64748b; font-size: 12px; }
-            LineEdit { placeholder-text: "留空则仅添加本机"; text <=> root.folder_devices; }
-            Text { text: root.device_choices == "" ? "暂无远程设备。" : "可选设备：" + root.device_choices; color: #94a3b8; font-size: 12px; }
+
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    spacing: 12px;
+
+                    Text { text: "基本设置"; color: #111827; font-size: 16px; font-weight: 700; }
+                    LineEdit { placeholder-text: "文件夹 ID，例如 photos"; text <=> root.folder_id; enabled: !root.edit_folder_dialog; }
+                    LineEdit { placeholder-text: "显示名称，例如 照片同步"; text <=> root.folder_label; }
+                    LineEdit { placeholder-text: "本地路径，例如 /home/user/Pictures"; text <=> root.folder_path; enabled: !root.edit_folder_dialog; }
+
+                    Text { text: "文件夹类型"; color: #64748b; font-size: 13px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "双向同步";
+                            selected: root.folder_type == "sendreceive";
+                            clicked => { root.folder_type = "sendreceive"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "仅发送";
+                            selected: root.folder_type == "sendonly";
+                            clicked => { root.folder_type = "sendonly"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "仅接收";
+                            selected: root.folder_type == "receiveonly";
+                            clicked => { root.folder_type = "receiveonly"; }
+                        }
+                    }
+
+                    Divider { }
+                    Text { text: "高级设置"; color: #111827; font-size: 16px; font-weight: 700; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "扫描间隔（秒）"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        LineEdit {
+                            width: 100px;
+                            text: root.folder_rescan_interval;
+                            edited(text) => { root.folder_rescan_interval = text.to-float() >= 0 ? text.to-float() : 3600; }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "文件系统监视"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.folder_fs_watcher ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.folder_fs_watcher ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.folder_fs_watcher = !root.folder_fs_watcher; } }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "忽略权限"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.folder_ignore_perms ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.folder_ignore_perms ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.folder_ignore_perms = !root.folder_ignore_perms; } }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "忽略删除"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.folder_ignore_delete ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.folder_ignore_delete ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.folder_ignore_delete = !root.folder_ignore_delete; } }
+                        }
+                    }
+
+                    Text { text: "文件版本控制"; color: #64748b; font-size: 13px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "不使用";
+                            selected: root.folder_versioning_type == "none";
+                            clicked => { root.folder_versioning_type = "none"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "简单";
+                            selected: root.folder_versioning_type == "simple";
+                            clicked => { root.folder_versioning_type = "simple"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "分级";
+                            selected: root.folder_versioning_type == "staggered";
+                            clicked => { root.folder_versioning_type = "staggered"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "回收站";
+                            selected: root.folder_versioning_type == "trashcan";
+                            clicked => { root.folder_versioning_type = "trashcan"; }
+                        }
+                    }
+
+                    Divider { }
+                    Text { text: "共享设备"; color: #111827; font-size: 16px; font-weight: 700; }
+                    Text { text: "共享设备 ID（逗号分隔）"; color: #64748b; font-size: 12px; }
+                    LineEdit { placeholder-text: "留空则仅添加本机"; text <=> root.folder_devices; }
+                    Text { text: root.device_choices == "" ? "暂无远程设备。" : "可选设备：" + root.device_choices; color: #94a3b8; font-size: 12px; }
+                }
+            }
+
             HorizontalLayout {
                 spacing: 10px;
                 Rectangle { }
@@ -927,9 +1100,9 @@ export component AppWindow inherits Window {
                     enabled: !root.is_mutating;
                     clicked => {
                         if root.edit_folder_dialog {
-                            root.edit_folder_requested(root.folder_id, root.folder_label, root.folder_path, root.folder_devices);
+                            root.edit_folder_requested(root.folder_id, root.folder_label, root.folder_path, root.folder_devices, root.folder_type, root.folder_rescan_interval, root.folder_fs_watcher, root.folder_ignore_perms, root.folder_ignore_delete, root.folder_versioning_type);
                         } else {
-                            root.add_folder_requested(root.folder_id, root.folder_label, root.folder_path, root.folder_devices);
+                            root.add_folder_requested(root.folder_id, root.folder_label, root.folder_path, root.folder_devices, root.folder_type, root.folder_rescan_interval, root.folder_fs_watcher, root.folder_ignore_perms, root.folder_ignore_delete, root.folder_versioning_type);
                         }
                         root.add_folder_dialog = false;
                         root.edit_folder_dialog = false;

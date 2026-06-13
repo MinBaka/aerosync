@@ -3,11 +3,32 @@ use serde_json::Value;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FolderVersioning {
+    #[serde(rename = "type")]
+    pub versioning_type: String, // simple, staggered, trashcan, external
+    #[serde(default)]
+    pub params: std::collections::HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AddFolderRequest {
     pub id: String,
     pub label: String,
     pub path: String,
     pub device_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder_type: Option<String>, // sendreceive, sendonly, receiveonly, receiveencrypted
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rescan_interval_s: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fs_watcher_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_perms: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_delete: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub versioning: Option<FolderVersioning>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -17,6 +38,16 @@ pub struct AddDeviceRequest {
     pub name: String,
     pub addresses: Vec<String>,
     pub folder_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub introducer: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_accept_folders: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_send_kbps: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_recv_kbps: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compression: Option<String>, // always, metadata, never
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

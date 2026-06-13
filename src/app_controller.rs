@@ -1,5 +1,5 @@
 use crate::backend::models::{
-    AddDeviceRequest, AddFolderRequest, OperationResult, SyncthingOverview,
+    AddDeviceRequest, AddFolderRequest, FolderVersioning, OperationResult, SyncthingOverview,
 };
 use crate::backend::syncthing::SyncthingService;
 use crate::formatting::{parse_addresses, split_ids};
@@ -107,14 +107,53 @@ impl AppController {
         });
 
         let controller = self.clone();
-        app.on_add_folder_requested(move |id, label, path, device_ids| {
+        app.on_add_folder_requested(move |id, label, path, device_ids, folder_type, rescan_interval, fs_watcher, ignore_perms, ignore_delete, versioning_type| {
             let request = AddFolderRequest {
                 id: id.to_string(),
                 label: label.to_string(),
                 path: path.to_string(),
                 device_ids: split_ids(&device_ids),
+                folder_type: Some(folder_type.to_string()),
+                rescan_interval_s: Some(rescan_interval as i64),
+                fs_watcher_enabled: Some(fs_watcher),
+                ignore_perms: Some(ignore_perms),
+                ignore_delete: Some(ignore_delete),
+                versioning: if versioning_type.as_str() == "none" {
+                    None
+                } else {
+                    Some(FolderVersioning {
+                        versioning_type: versioning_type.to_string(),
+                        params: std::collections::HashMap::new(),
+                    })
+                },
             };
-            controller.run_mutation("添加/编辑文件夹", move |service| async move {
+            controller.run_mutation("添加文件夹", move |service| async move {
+                Ok(Some(service.add_folder(request).await?))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_edit_folder_requested(move |id, label, path, device_ids, folder_type, rescan_interval, fs_watcher, ignore_perms, ignore_delete, versioning_type| {
+            let request = AddFolderRequest {
+                id: id.to_string(),
+                label: label.to_string(),
+                path: path.to_string(),
+                device_ids: split_ids(&device_ids),
+                folder_type: Some(folder_type.to_string()),
+                rescan_interval_s: Some(rescan_interval as i64),
+                fs_watcher_enabled: Some(fs_watcher),
+                ignore_perms: Some(ignore_perms),
+                ignore_delete: Some(ignore_delete),
+                versioning: if versioning_type.as_str() == "none" {
+                    None
+                } else {
+                    Some(FolderVersioning {
+                        versioning_type: versioning_type.to_string(),
+                        params: std::collections::HashMap::new(),
+                    })
+                },
+            };
+            controller.run_mutation("编辑文件夹", move |service| async move {
                 Ok(Some(service.edit_folder(request).await?))
             });
         });
@@ -126,6 +165,11 @@ impl AppController {
                 name: name.to_string(),
                 addresses: parse_addresses(&addresses),
                 folder_ids: split_ids(&folder_ids),
+                introducer: None,
+                auto_accept_folders: None,
+                max_send_kbps: None,
+                max_recv_kbps: None,
+                compression: None,
             };
             controller.run_mutation("添加/编辑设备", move |service| async move {
                 Ok(Some(service.edit_device(request).await?))
