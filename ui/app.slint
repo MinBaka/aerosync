@@ -42,6 +42,8 @@ component NavItem inherits Rectangle {
     border-radius: 8px;
     background: root.selected ? #eef2f7 : #ffffff00;
 
+    animate background { duration: 200ms; easing: ease-in-out; }
+
     HorizontalLayout {
         padding-left: 14px;
         padding-right: 12px;
@@ -54,6 +56,8 @@ component NavItem inherits Rectangle {
             font-size: 13px;
             horizontal-alignment: center;
             vertical-alignment: center;
+
+            animate color { duration: 200ms; easing: ease-in-out; }
         }
 
         Text {
@@ -62,6 +66,8 @@ component NavItem inherits Rectangle {
             font-size: 14px;
             font-weight: root.selected ? 700 : 500;
             vertical-alignment: center;
+
+            animate color { duration: 200ms; easing: ease-in-out; }
         }
     }
 
@@ -82,7 +88,9 @@ component FlatButton inherits Rectangle {
     border-radius: 7px;
     border-width: root.primary ? 0px : 1px;
     border-color: root.danger ? #fecaca : #cbd5e1;
-    background: !root.enabled ? #f1f5f9 : root.primary ? #2563eb : #ffffff;
+    background: !root.enabled ? #f1f5f9 : touch.pressed ? (root.primary ? #1d4ed8 : #f1f5f9) : touch.has-hover ? (root.primary ? #1e40af : #f8fafc) : root.primary ? #2563eb : #ffffff;
+
+    animate background { duration: 150ms; easing: ease-in-out; }
 
     Text {
         text: root.text;
@@ -93,7 +101,7 @@ component FlatButton inherits Rectangle {
         vertical-alignment: center;
     }
 
-    TouchArea {
+    touch := TouchArea {
         clicked => {
             if root.enabled {
                 root.clicked();
@@ -113,7 +121,9 @@ component SmallButton inherits Rectangle {
     border-radius: 6px;
     border-width: 1px;
     border-color: root.danger ? #fecaca : #cbd5e1;
-    background: !root.enabled ? #f8fafc : #ffffff;
+    background: !root.enabled ? #f8fafc : touch.pressed ? #f1f5f9 : touch.has-hover ? #f8fafc : #ffffff;
+
+    animate background { duration: 150ms; easing: ease-in-out; }
 
     Text {
         text: root.text;
@@ -124,7 +134,7 @@ component SmallButton inherits Rectangle {
         vertical-alignment: center;
     }
 
-    TouchArea {
+    touch := TouchArea {
         clicked => {
             if root.enabled {
                 root.clicked();
@@ -181,6 +191,9 @@ component Pill inherits Rectangle {
     border-color: root.good ? #bbf7d0 : #e2e8f0;
     background: root.good ? #dcfce7 : #f1f5f9;
 
+    animate background { duration: 250ms; easing: ease-in-out; }
+    animate border-color { duration: 250ms; easing: ease-in-out; }
+
     Text {
         text: root.text;
         color: root.good ? #15803d : #64748b;
@@ -188,6 +201,8 @@ component Pill inherits Rectangle {
         font-weight: 700;
         horizontal-alignment: center;
         vertical-alignment: center;
+
+        animate color { duration: 250ms; easing: ease-in-out; }
     }
 }
 
@@ -829,11 +844,16 @@ export component AppWindow inherits Window {
                                         Rectangle {
                                             width: 44px; height: 24px; border-radius: 12px;
                                             background: root.close_to_tray ? #2563eb : #cbd5e1;
+
+                                            animate background { duration: 200ms; easing: ease-in-out; }
+
                                             Rectangle {
                                                 width: 20px; height: 20px; border-radius: 10px;
                                                 background: #ffffff;
                                                 x: root.close_to_tray ? 22px : 2px;
                                                 y: 2px;
+
+                                                animate x { duration: 200ms; easing: ease-in-out; }
                                             }
                                             TouchArea { clicked => { root.close_to_tray = !root.close_to_tray; } }
                                         }
@@ -861,6 +881,9 @@ export component AppWindow inherits Window {
         width: root.width;
         height: root.height;
         background: #00000066;
+        opacity: root.add_folder_dialog || root.edit_folder_dialog || root.add_device_dialog || root.edit_device_dialog || root.ignores_dialog || root.confirm_dialog ? 1.0 : 0.0;
+
+        animate opacity { duration: 200ms; easing: ease-in-out; }
     }
 
     Rectangle {
@@ -871,6 +894,10 @@ export component AppWindow inherits Window {
         height: 400px;
         background: #ffffff;
         border-radius: 12px;
+        opacity: root.add_folder_dialog || root.edit_folder_dialog ? 1.0 : 0.0;
+
+        animate opacity { duration: 200ms; easing: ease-out; }
+        animate y { duration: 250ms; easing: ease-out; }
 
         VerticalLayout {
             padding: 22px;
@@ -920,6 +947,10 @@ export component AppWindow inherits Window {
         height: 430px;
         background: #ffffff;
         border-radius: 12px;
+        opacity: root.add_device_dialog || root.edit_device_dialog ? 1.0 : 0.0;
+
+        animate opacity { duration: 200ms; easing: ease-out; }
+        animate y { duration: 250ms; easing: ease-out; }
 
         VerticalLayout {
             padding: 22px;
@@ -970,6 +1001,10 @@ export component AppWindow inherits Window {
         height: 400px;
         background: #ffffff;
         border-radius: 12px;
+        opacity: root.ignores_dialog ? 1.0 : 0.0;
+
+        animate opacity { duration: 200ms; easing: ease-out; }
+        animate y { duration: 250ms; easing: ease-out; }
 
         VerticalLayout {
             padding: 22px;
@@ -1022,6 +1057,10 @@ export component AppWindow inherits Window {
         height: 230px;
         background: #ffffff;
         border-radius: 12px;
+        opacity: root.confirm_dialog ? 1.0 : 0.0;
+
+        animate opacity { duration: 200ms; easing: ease-out; }
+        animate y { duration: 250ms; easing: ease-out; }
 
         VerticalLayout {
             padding: 22px;
