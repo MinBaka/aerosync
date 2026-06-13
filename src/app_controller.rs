@@ -45,12 +45,14 @@ impl AppController {
             let weak_for_task = controller.app.clone();
 
             controller.runtime.spawn(async move {
-                let result = service.download_core(move |progress| {
-                    let weak_inner = weak_for_task.clone();
-                    let _ = weak_inner.upgrade_in_event_loop(move |app| {
-                        app.set_download_progress(progress);
-                    });
-                }).await;
+                let result = service
+                    .download_core(move |progress| {
+                        let weak_inner = weak_for_task.clone();
+                        let _ = weak_inner.upgrade_in_event_loop(move |app| {
+                            app.set_download_progress(progress);
+                        });
+                    })
+                    .await;
 
                 let _ = weak.upgrade_in_event_loop(move |app| {
                     app.set_is_downloading(false);
@@ -210,9 +212,14 @@ impl AppController {
             let folder_id = folder_id.to_string();
             let ignores = ignores.to_string();
             controller.run_mutation("保存忽略模式", move |service| async move {
-                Ok(Some(service.set_folder_ignores(&folder_id, &ignores).await?))
+                Ok(Some(
+                    service.set_folder_ignores(&folder_id, &ignores).await?,
+                ))
             });
         });
+
+        let controller = self.clone();
+        app.on_set_rate_limits_requested(move |recv, send| {
             let recv_kbps = recv.parse::<i64>().unwrap_or(0);
             let send_kbps = send.parse::<i64>().unwrap_or(0);
             controller.run_mutation("应用网络限速", move |service| async move {

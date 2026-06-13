@@ -5,7 +5,10 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub async fn download_syncthing<F>(bin_path: &PathBuf, mut progress_callback: F) -> anyhow::Result<()>
+pub async fn download_syncthing<F>(
+    bin_path: &PathBuf,
+    mut progress_callback: F,
+) -> anyhow::Result<()>
 where
     F: FnMut(f32) + Send + 'static,
 {

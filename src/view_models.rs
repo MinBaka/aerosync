@@ -45,7 +45,7 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
             let need_bytes = folder_status.map(|s| s.need_bytes).unwrap_or(0);
             let global_bytes = folder_status.map(|s| s.global_bytes).unwrap_or(0);
 
-            let mut status_str = if folder.paused {
+            let status_str = if folder.paused {
                 "已暂停".to_string()
             } else if state == "idle" {
                 "已同步".to_string()
@@ -126,7 +126,9 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
             };
 
             let completion_info = overview.device_completions.get(&device.device_id);
-            let completion_pct = completion_info.map(|c| c.completion as f32 / 100.0).unwrap_or(1.0);
+            let completion_pct = completion_info
+                .map(|c| c.completion as f32 / 100.0)
+                .unwrap_or(1.0);
             let need_bytes = completion_info.map(|c| c.need_bytes).unwrap_or(0);
 
             let need_bytes_text = if need_bytes > 0 && connected {
@@ -244,8 +246,16 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
         folders,
         devices,
         transfers,
-        config_max_recv_kbps: if overview.config.options.max_recv_kbps == 0 { "".to_string() } else { overview.config.options.max_recv_kbps.to_string() },
-        config_max_send_kbps: if overview.config.options.max_send_kbps == 0 { "".to_string() } else { overview.config.options.max_send_kbps.to_string() },
+        config_max_recv_kbps: if overview.config.options.max_recv_kbps == 0 {
+            "".to_string()
+        } else {
+            overview.config.options.max_recv_kbps.to_string()
+        },
+        config_max_send_kbps: if overview.config.options.max_send_kbps == 0 {
+            "".to_string()
+        } else {
+            overview.config.options.max_send_kbps.to_string()
+        },
     }
 }
 

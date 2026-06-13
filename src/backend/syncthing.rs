@@ -1,7 +1,7 @@
 use super::downloader::{download_syncthing, get_app_dir};
 use super::models::{
-    AddDeviceRequest, AddFolderRequest, OperationResult, SyncthingConfig, SyncthingConnections,
-    SyncthingOverview, SyncthingSystemStatus,
+    AddDeviceRequest, AddFolderRequest, DeviceCompletion, FolderStatus, OperationResult,
+    SyncthingConfig, SyncthingConnections, SyncthingOverview, SyncthingSystemStatus,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use reqwest::{Method, StatusCode, Url};
@@ -54,7 +54,12 @@ impl SyncthingService {
         }
 
         if let Err(error) = self.wait_for_syncthing_api(Duration::from_secs(10)).await {
-            return Ok(empty_overview(is_downloaded, true, false, Some(error.to_string())));
+            return Ok(empty_overview(
+                is_downloaded,
+                true,
+                false,
+                Some(error.to_string()),
+            ));
         }
 
         let start = Instant::now();
@@ -67,14 +72,18 @@ impl SyncthingService {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
 
-        Ok(empty_overview(is_downloaded, true, false, Some(last_error.to_string())))
+        Ok(empty_overview(
+            is_downloaded,
+            true,
+            false,
+            Some(last_error.to_string()),
+        ))
     }
 
     async fn fetch_ready_overview(&self, is_downloaded: bool) -> Result<SyncthingOverview> {
-        let config = serde_json::from_value::<SyncthingConfig>(
-            self.syncthing_get(&["config"], &[]).await?,
-        )
-        .unwrap_or_default();
+        let config =
+            serde_json::from_value::<SyncthingConfig>(self.syncthing_get(&["config"], &[]).await?)
+                .unwrap_or_default();
         let system_status = serde_json::from_value::<SyncthingSystemStatus>(
             self.syncthing_get(&["system", "status"], &[]).await?,
         )
@@ -316,7 +325,9 @@ impl SyncthingService {
     pub async fn get_folder_ignores(&self, folder_id: &str) -> Result<String> {
         let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
         self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
-        let value = self.syncthing_get(&["db", "ignores"], &[("folder", folder_id)]).await?;
+        let value = self
+            .syncthing_get(&["db", "ignores"], &[("folder", folder_id)])
+            .await?;
 
         let ignore_lines = value
             .get("ignore")
@@ -332,11 +343,19 @@ impl SyncthingService {
         Ok(ignore_lines)
     }
 
-    pub async fn set_folder_ignores(&self, folder_id: &str, ignores: &str) -> Result<OperationResult> {
+    pub async fn set_folder_ignores(
+        &self,
+        folder_id: &str,
+        ignores: &str,
+    ) -> Result<OperationResult> {
         let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
         self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
 
-        let lines: Vec<String> = ignores.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let lines: Vec<String> = ignores
+            .lines()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
 
         self.syncthing_request_empty(
             Method::POST,
@@ -509,12 +528,16 @@ impl SyncthingService {
                 let should_share = request.folder_ids.iter().any(|id| id == folder_id_str);
 
                 if let Some(devices) = folder.get_mut("devices").and_then(Value::as_array_mut) {
-                    let has_device = devices.iter().any(|d| d.get("deviceID").and_then(Value::as_str) == Some(&device_id));
+                    let has_device = devices
+                        .iter()
+                        .any(|d| d.get("deviceID").and_then(Value::as_str) == Some(&device_id));
 
                     if should_share && !has_device {
                         devices.push(json!({ "deviceID": device_id }));
                     } else if !should_share && has_device {
-                        devices.retain(|d| d.get("deviceID").and_then(Value::as_str) != Some(&device_id));
+                        devices.retain(|d| {
+                            d.get("deviceID").and_then(Value::as_str) != Some(&device_id)
+                        });
                     }
                 }
             }
@@ -699,7 +722,10 @@ impl SyncthingService {
         let Some(gui_start) = content.find("<gui") else {
             return Ok(());
         };
-        let Some(gui_end) = content[gui_start..].find("</gui>").map(|offset| gui_start + offset) else {
+        let Some(gui_end) = content[gui_start..]
+            .find("</gui>")
+            .map(|offset| gui_start + offset)
+        else {
             return Ok(());
         };
         let gui_section = &content[gui_start..gui_end];
