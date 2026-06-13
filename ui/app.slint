@@ -175,7 +175,7 @@ component SummaryCard inherits Rectangle {
 
     VerticalLayout {
         padding: 14px;
-        spacing: 8px;
+        spacing: 4px;
 
         Text {
             text: root.label;
@@ -853,14 +853,16 @@ export component AppWindow inherits Window {
                                             HorizontalLayout {
                                                 padding-top: 11px;
                                                 padding-bottom: 11px;
+                                                padding-right: 8px;
                                                 spacing: 0px;
-                                                Text { width: 140px; text: log.when; color: #64748b; font-size: 12px; vertical-alignment: center; overflow: elide; }
+                                                Text { width: 140px; text: log.when; color: #64748b; font-size: 12px; vertical-alignment: top; overflow: elide; }
                                                 Rectangle {
                                                     width: 80px;
-                                                    Pill {
-                                                        y: (parent.height - 28px) / 2;
-                                                        text: log.level;
-                                                        good: log.level == "INFO";
+                                                    VerticalLayout {
+                                                        Pill {
+                                                            text: log.level;
+                                                            good: log.level == "INFO";
+                                                        }
                                                     }
                                                 }
                                                 Text {
@@ -868,7 +870,7 @@ export component AppWindow inherits Window {
                                                     text: log.message;
                                                     color: #1f2937;
                                                     font-size: 13px;
-                                                    vertical-alignment: center;
+                                                    vertical-alignment: top;
                                                     wrap: word-wrap;
                                                 }
                                             }
