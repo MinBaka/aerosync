@@ -75,14 +75,6 @@ impl AppController {
         });
 
         let controller = self.clone();
-        app.on_open_web_requested(move || {
-            controller.run_mutation("打开 Web UI", |service| async move {
-                service.open_web_ui()?;
-                Ok(None)
-            });
-        });
-
-        let controller = self.clone();
         app.on_start_core_requested(move || {
             controller.run_mutation("启动核心", |service| async move {
                 service.start().await?;

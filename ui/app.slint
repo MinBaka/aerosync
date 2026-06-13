@@ -349,7 +349,6 @@ export component AppWindow inherits Window {
 
     callback refresh_requested();
     callback download_syncthing_requested();
-    callback open_web_requested();
     callback start_core_requested();
     callback shutdown_core_requested();
     callback restart_core_requested();
@@ -480,7 +479,7 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                         spacing: 6px;
                         Text {
-                            text: root.active_page == 0 ? "同步任务" : root.active_page == 1 ? "设备管理" : root.active_page == 2 ? "传输记录" : "设置";
+                            text: root.active_page == 0 ? "同步任务" : root.active_page == 1 ? "设备管理" : root.active_page == 2 ? "传输记录" : root.active_page == 3 ? "日志" : "设置";
                             color: #111827;
                             font-size: 28px;
                             font-weight: 800;
@@ -495,13 +494,12 @@ export component AppWindow inherits Window {
                     Rectangle { }
 
                     FlatButton { width: 56px; text: root.is_loading ? "刷新中" : "刷新"; enabled: !root.is_loading && !root.is_mutating; clicked => { root.refresh_requested(); } }
-                    FlatButton { width: 108px; text: "打开 Web UI"; enabled: !root.is_mutating; clicked => { root.open_web_requested(); } }
                     FlatButton {
-                        width: root.active_page == 4 ? 0px : 124px;
-                        visible: root.active_page != 3;
+                        width: root.active_page == 4 ? 0px : root.active_page == 3 ? 0px : 124px;
+                        visible: root.active_page == 0 || root.active_page == 1 || root.active_page == 2;
                         primary: root.active_page == 0 || root.active_page == 1;
                         text: root.active_page == 0 ? "添加同步任务" : root.active_page == 1 ? "添加设备" : "刷新连接";
-                        enabled: !root.is_mutating && (root.active_page == 2 || root.active_page == 3 || root.is_ready);
+                        enabled: !root.is_mutating && (root.active_page == 2 || root.is_ready);
                         clicked => {
                             if root.active_page == 0 {
                                 root.folder_id = "";

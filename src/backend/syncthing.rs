@@ -13,7 +13,6 @@ use std::time::{Duration, Instant};
 use sysinfo::{ProcessesToUpdate, Signal, System};
 
 const SYNCTHING_API_URL: &str = "http://127.0.0.1:58384/rest";
-const SYNCTHING_WEB_URL: &str = "http://127.0.0.1:58384";
 const SYNCTHING_GUI_CONFIG_ADDRESS: &str = "127.0.0.1:58384";
 const SYNCTHING_GUI_CLI_ADDRESS: &str = "http://127.0.0.1:58384";
 
@@ -33,10 +32,6 @@ impl SyncthingService {
             bin_dir: app_dir.join("bin"),
             config_dir: app_dir.join("config"),
         }
-    }
-
-    pub fn web_url(&self) -> &'static str {
-        SYNCTHING_WEB_URL
     }
 
     pub async fn setup(&self) -> Result<()> {
@@ -276,11 +271,6 @@ impl SyncthingService {
     pub async fn restart(&self) -> Result<()> {
         self.shutdown().await?;
         self.start().await
-    }
-
-    pub fn open_web_ui(&self) -> Result<()> {
-        open::that(self.web_url()).context("打开 Syncthing Web UI 失败")?;
-        Ok(())
     }
 
     pub fn kill_owned_child(&self) {
