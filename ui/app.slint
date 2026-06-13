@@ -32,6 +32,12 @@ export struct TransferRow {
     connected: bool,
 }
 
+export struct LogRow {
+    when: string,
+    level: string,
+    message: string,
+}
+
 component NavItem inherits Rectangle {
     in property <string> icon;
     in property <string> label;
@@ -281,6 +287,7 @@ export component AppWindow inherits Window {
     in property <[FolderRow]> folders;
     in property <[DeviceRow]> devices;
     in property <[TransferRow]> transfers;
+    in property <[LogRow]> logs;
 
     in-out property <bool> edit_folder_dialog: false;
     in-out property <bool> edit_device_dialog: false;
@@ -391,7 +398,8 @@ export component AppWindow inherits Window {
                     NavItem { icon: "↔"; label: "同步任务"; selected: root.active_page == 0; clicked => { root.active_page = 0; } }
                     NavItem { icon: "▣"; label: "设备管理"; selected: root.active_page == 1; clicked => { root.active_page = 1; } }
                     NavItem { icon: "◦"; label: "传输记录"; selected: root.active_page == 2; clicked => { root.active_page = 2; } }
-                    NavItem { icon: "⚙"; label: "设置"; selected: root.active_page == 3; clicked => { root.active_page = 3; } }
+                    NavItem { icon: "◈"; label: "日志"; selected: root.active_page == 3; clicked => { root.active_page = 3; } }
+                    NavItem { icon: "⚙"; label: "设置"; selected: root.active_page == 4; clicked => { root.active_page = 4; } }
                 }
 
                 Rectangle { vertical-stretch: 1; }
@@ -448,7 +456,7 @@ export component AppWindow inherits Window {
                             font-weight: 800;
                         }
                         Text {
-                            text: root.active_page == 0 ? "管理本机同步文件夹和共享设备" : root.active_page == 1 ? "管理远程设备连接、暂停和删除" : root.active_page == 2 ? "查看当前连接和传输状态" : "控制 Syncthing 核心和全局操作";
+                            text: root.active_page == 0 ? "管理本机同步文件夹和共享设备" : root.active_page == 1 ? "管理远程设备连接、暂停和删除" : root.active_page == 2 ? "查看当前连接和传输状态" : root.active_page == 3 ? "实时查看 Syncthing 运行日志" : "控制 Syncthing 核心和全局操作";
                             color: #64748b;
                             font-size: 14px;
                         }
@@ -459,11 +467,11 @@ export component AppWindow inherits Window {
                     FlatButton { width: 56px; text: root.is_loading ? "刷新中" : "刷新"; enabled: !root.is_loading && !root.is_mutating; clicked => { root.refresh_requested(); } }
                     FlatButton { width: 108px; text: "打开 Web UI"; enabled: !root.is_mutating; clicked => { root.open_web_requested(); } }
                     FlatButton {
-                        width: root.active_page == 3 ? 0px : 124px;
+                        width: root.active_page == 4 ? 0px : 124px;
                         visible: root.active_page != 3;
                         primary: root.active_page == 0 || root.active_page == 1;
                         text: root.active_page == 0 ? "添加同步任务" : root.active_page == 1 ? "添加设备" : "刷新连接";
-                        enabled: !root.is_mutating && (root.active_page == 2 || root.is_ready);
+                        enabled: !root.is_mutating && (root.active_page == 2 || root.active_page == 3 || root.is_ready);
                         clicked => {
                             if root.active_page == 0 {
                                 root.folder_id = "";
@@ -729,7 +737,71 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.active_page == 3 : ScrollView {
+                        if root.active_page == 3 : Rectangle {
+                            vertical-stretch: 1;
+
+                            VerticalLayout {
+                                spacing: 14px;
+
+                                HorizontalLayout {
+                                    height: 46px;
+                                    spacing: 10px;
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        Text { text: "日志"; color: #111827; font-size: 20px; font-weight: 800; }
+                                        Text { text: "Syncthing 核心实时日志"; color: #64748b; font-size: 13px; }
+                                    }
+
+                                    Rectangle { }
+
+                                    FlatButton { width: 56px; text: "刷新"; enabled: !root.is_loading && !root.is_mutating; clicked => { root.refresh_requested(); } }
+                                }
+
+                                HorizontalLayout {
+                                    height: 27px;
+                                    spacing: 0px;
+                                    Text { width: 140px; text: "时间"; color: #64748b; font-size: 13px; }
+                                    Text { width: 80px; text: "级别"; color: #64748b; font-size: 13px; }
+                                    Text { horizontal-stretch: 1; text: "消息"; color: #64748b; font-size: 13px; }
+                                    Rectangle { width: 14px; }
+                                }
+                                Divider { }
+
+                                ScrollView {
+                                    VerticalLayout {
+                                        spacing: 0px;
+                                        for log in root.logs : Rectangle {
+                                            min-height: 52px;
+                                            background: #ffffff;
+                                            HorizontalLayout {
+                                                padding-top: 11px;
+                                                padding-bottom: 11px;
+                                                spacing: 0px;
+                                                Text { width: 140px; text: log.when; color: #64748b; font-size: 12px; vertical-alignment: center; overflow: elide; }
+                                                Rectangle {
+                                                    width: 80px;
+                                                    Pill {
+                                                        y: (parent.height - 28px) / 2;
+                                                        text: log.level;
+                                                        good: log.level == "INFO";
+                                                    }
+                                                }
+                                                Text {
+                                                    horizontal-stretch: 1;
+                                                    text: log.message;
+                                                    color: #1f2937;
+                                                    font-size: 13px;
+                                                    vertical-alignment: center;
+                                                    wrap: word-wrap;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.active_page == 4 : ScrollView {
                             vertical-stretch: 1;
 
                             VerticalLayout {

@@ -310,10 +310,12 @@ impl AppController {
         self.runtime.spawn(async move {
             let setup_result = service.setup().await;
             let overview_result = service.overview().await;
+            let logs_result = service.get_logs(None).await;
             post_result(
                 weak,
                 setup_result.err().map(|error| error.to_string()),
                 overview_result,
+                logs_result,
             );
         });
     }
@@ -328,7 +330,8 @@ impl AppController {
         let weak = self.app.clone();
         self.runtime.spawn(async move {
             let overview_result = service.overview().await;
-            post_result(weak, None, overview_result);
+            let logs_result = service.get_logs(None).await;
+            post_result(weak, None, overview_result, logs_result);
         });
     }
 
@@ -387,12 +390,16 @@ fn post_result(
     weak: Weak<AppWindow>,
     setup_error: Option<String>,
     overview_result: Result<SyncthingOverview>,
+    logs_result: Result<Vec<crate::backend::models::LogEntry>>,
 ) {
     let _ = weak.upgrade_in_event_loop(move |app| {
         app.set_is_loading(false);
         match overview_result {
             Ok(overview) => apply_overview(&app, overview),
             Err(error) => app.set_error_message(shared(error.to_string())),
+        }
+        if let Ok(logs) = logs_result {
+            apply_logs(&app, logs);
         }
         if let Some(error) = setup_error {
             app.set_error_message(shared(format!("无法启动 Syncthing: {error}")));
@@ -424,6 +431,19 @@ fn apply_overview(app: &AppWindow, overview: SyncthingOverview) {
     app.set_folders(model(snapshot.folders));
     app.set_devices(model(snapshot.devices));
     app.set_transfers(model(snapshot.transfers));
+}
+
+fn apply_logs(app: &AppWindow, logs: Vec<crate::backend::models::LogEntry>) {
+    use crate::LogRow;
+    let log_rows: Vec<LogRow> = logs
+        .into_iter()
+        .map(|log| LogRow {
+            when: log.when.into(),
+            level: log.level.to_uppercase().into(),
+            message: log.message.into(),
+        })
+        .collect();
+    app.set_logs(model(log_rows));
 }
 
 fn model<T: Clone + 'static>(items: Vec<T>) -> ModelRc<T> {

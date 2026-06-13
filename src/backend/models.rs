@@ -212,3 +212,10 @@ pub struct SyncthingConnection {
     #[serde(flatten)]
     pub raw: serde_json::Map<String, Value>,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct LogEntry {
+    pub when: String,
+    pub message: String,
+    pub level: String,
+}

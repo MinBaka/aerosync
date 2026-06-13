@@ -1,6 +1,6 @@
 use super::downloader::{download_syncthing, get_app_dir};
 use super::models::{
-    AddDeviceRequest, AddFolderRequest, DeviceCompletion, FolderStatus, OperationResult,
+    AddDeviceRequest, AddFolderRequest, DeviceCompletion, FolderStatus, LogEntry, OperationResult,
     SyncthingConfig, SyncthingConnections, SyncthingOverview, SyncthingSystemStatus,
 };
 use anyhow::{anyhow, bail, Context, Result};
@@ -994,6 +994,37 @@ impl SyncthingService {
                 .syncthing_request_empty(Method::GET, &["system", "ping"], &[], None)
                 .await
                 .is_ok()
+    }
+
+    pub async fn get_logs(&self, since: Option<i64>) -> Result<Vec<LogEntry>> {
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let params: Vec<(&str, String)> = if let Some(since_val) = since {
+            vec![("since", since_val.to_string())]
+        } else {
+            vec![]
+        };
+
+        let value = self
+            .syncthing_get(&["system", "log"], &params)
+            .await?;
+
+        let messages = value["messages"]
+            .as_array()
+            .context("日志响应中没有 messages 数组")?;
+
+        let logs: Vec<LogEntry> = messages
+            .iter()
+            .filter_map(|msg| {
+                Some(LogEntry {
+                    when: msg["when"].as_str()?.to_string(),
+                    message: msg["message"].as_str()?.to_string(),
+                    level: msg["level"].as_str().unwrap_or("info").to_string(),
+                })
+            })
+            .collect();
+
+        Ok(logs)
     }
 }
 
