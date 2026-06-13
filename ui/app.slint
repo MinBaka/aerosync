@@ -443,6 +443,7 @@ export component AppWindow inherits Window {
                     Rectangle {
                         width: 8px;
                         height: 8px;
+                        y: (parent.height - self.height) / 2;
                         border-radius: 4px;
                         background: root.is_ready ? #22c55e : #94a3b8;
                     }
