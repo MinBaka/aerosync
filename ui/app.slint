@@ -303,6 +303,10 @@ export component AppWindow inherits Window {
     in property <[PendingDeviceRow]> pending_devices;
     in property <[PendingFolderRow]> pending_folders;
 
+    in-out property <bool> has_update: false;
+    in-out property <string> latest_version: "";
+    in-out property <bool> auto_upgrade_enabled: true;
+
     in-out property <bool> edit_folder_dialog: false;
     in-out property <bool> edit_device_dialog: false;
     in-out property <bool> ignores_dialog: false;
@@ -368,6 +372,9 @@ export component AppWindow inherits Window {
     callback ignore_device_requested(string);
     callback accept_folder_requested(string, string, string);
     callback ignore_folder_requested(string, string);
+    callback check_update_requested();
+    callback upgrade_core_requested();
+    callback toggle_auto_upgrade_requested(bool);
 
     HorizontalLayout {
         padding: 0px;
@@ -603,7 +610,6 @@ export component AppWindow inherits Window {
                                     Rectangle { }
 
                                     FlatButton { width: 86px; text: "扫描全部"; enabled: root.is_ready && !root.is_mutating; clicked => { root.global_action_requested("rescan-all"); } }
-                                    FlatButton { width: 98px; text: "添加文件夹"; enabled: root.is_ready && !root.is_mutating; clicked => { root.folder_id = ""; root.folder_label = ""; root.folder_path = ""; root.folder_devices = root.device_choices; root.add_folder_dialog = true; } }
                                 }
 
                                 HorizontalLayout {
@@ -710,8 +716,6 @@ export component AppWindow inherits Window {
                                     }
 
                                     Rectangle { }
-
-                                    FlatButton { width: 86px; text: "添加设备"; enabled: root.is_ready && !root.is_mutating; clicked => { root.device_id = ""; root.device_name = ""; root.device_addresses = "dynamic"; root.device_folders = root.folder_choices; root.add_device_dialog = true; } }
                                 }
 
                                 HorizontalLayout {
@@ -898,6 +902,51 @@ export component AppWindow inherits Window {
                                     }
 
                                     Rectangle { }
+                                }
+
+                                Rectangle {
+                                    height: 100px;
+                                    background: #f8fafc;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #e2e8f0;
+
+                                    VerticalLayout {
+                                        padding: 12px;
+                                        spacing: 8px;
+
+                                        HorizontalLayout {
+                                            height: 36px;
+                                            spacing: 12px;
+                                            Text { width: 92px; text: "核心更新"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
+                                            Text { horizontal-stretch: 1; text: root.has_update ? "发现新版本：" + root.latest_version : "当前已是最新版本"; color: root.has_update ? #ea580c : #64748b; font-size: 13px; vertical-alignment: center; overflow: elide; }
+                                        }
+
+                                        if root.is_syncthing_downloaded : HorizontalLayout {
+                                            height: 44px;
+                                            spacing: 12px;
+                                            FlatButton { width: 104px; primary: !root.has_update; text: "检查更新"; enabled: root.is_ready && !root.is_mutating; clicked => { root.check_update_requested(); } }
+                                            if root.has_update : FlatButton { width: 104px; primary: true; text: "立即更新"; enabled: root.is_ready && !root.is_mutating; clicked => { root.upgrade_core_requested(); } }
+                                            Rectangle { horizontal-stretch: 1; }
+                                            HorizontalLayout {
+                                                spacing: 8px;
+                                                Text { text: "自动更新"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                                                Rectangle {
+                                                    width: 44px; height: 24px; border-radius: 12px; y: (parent.height - self.height) / 2;
+                                                    background: root.auto_upgrade_enabled ? #2563eb : #cbd5e1;
+                                                    animate background { duration: 200ms; easing: ease-in-out; }
+                                                    Rectangle {
+                                                        width: 20px; height: 20px; border-radius: 10px;
+                                                        background: #ffffff;
+                                                        x: root.auto_upgrade_enabled ? 22px : 2px;
+                                                        y: 2px;
+                                                        animate x { duration: 200ms; easing: ease-in-out; }
+                                                    }
+                                                    TouchArea { clicked => { root.auto_upgrade_enabled = !root.auto_upgrade_enabled; root.toggle_auto_upgrade_requested(root.auto_upgrade_enabled); } }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 Rectangle {

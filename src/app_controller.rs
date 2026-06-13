@@ -99,6 +99,28 @@ impl AppController {
         });
 
         let controller = self.clone();
+        app.on_check_update_requested(move || {
+            controller.run_mutation("检查更新", |service| async move {
+                service.check_upgrade().await?;
+                Ok(None)
+            });
+        });
+
+        let controller = self.clone();
+        app.on_upgrade_core_requested(move || {
+            controller.run_mutation("更新核心", |service| async move {
+                Ok(Some(service.perform_upgrade().await?))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_toggle_auto_upgrade_requested(move |enabled| {
+            controller.run_mutation("设置自动更新", move |service| async move {
+                Ok(Some(service.set_auto_upgrade(enabled).await?))
+            });
+        });
+
+        let controller = self.clone();
         app.on_add_folder_requested(move |id, label, path, device_ids, folder_type, rescan_interval, fs_watcher, ignore_perms, ignore_delete, versioning_type| {
             let request = AddFolderRequest {
                 id: id.to_string(),
@@ -509,6 +531,10 @@ fn apply_overview(app: &AppWindow, overview: SyncthingOverview) {
     app.set_transfers(model(snapshot.transfers));
     app.set_pending_devices(model(snapshot.pending_devices));
     app.set_pending_folders(model(snapshot.pending_folders));
+
+    app.set_has_update(snapshot.has_update);
+    app.set_latest_version(shared(snapshot.latest_version));
+    app.set_auto_upgrade_enabled(snapshot.auto_upgrade_enabled);
 }
 
 fn apply_logs(app: &AppWindow, logs: Vec<crate::backend::models::LogEntry>) {

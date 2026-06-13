@@ -75,6 +75,8 @@ pub struct SyncthingOverview {
     pub pending_devices: std::collections::HashMap<String, PendingDevice>,
     #[serde(default)]
     pub pending_folders: std::collections::HashMap<String, PendingFolder>,
+    #[serde(default)]
+    pub upgrade_status: Option<SystemUpgradeStatus>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -166,8 +168,21 @@ pub struct SyncthingOptions {
     pub reconnection_interval_s: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connection_limit_max: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_upgrade_interval_h: Option<i32>,
     #[serde(flatten)]
     pub raw: serde_json::Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemUpgradeStatus {
+    #[serde(default)]
+    pub latest: String,
+    #[serde(default)]
+    pub newer: bool,
+    #[serde(default)]
+    pub major_newer: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

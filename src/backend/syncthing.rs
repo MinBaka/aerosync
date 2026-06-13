@@ -125,6 +125,10 @@ impl SyncthingService {
         let pending_devices = self.get_pending_devices().await.unwrap_or_default();
         let pending_folders = self.get_pending_folders().await.unwrap_or_default();
 
+        let upgrade_status = self.syncthing_get(&["system", "upgrade"], &[]).await
+            .ok()
+            .and_then(|v| serde_json::from_value::<crate::backend::models::SystemUpgradeStatus>(v).ok());
+
         let restart_required = self.get_restart_required().await.unwrap_or(false);
 
         Ok(SyncthingOverview {
@@ -140,6 +144,7 @@ impl SyncthingService {
             error: None,
             pending_devices,
             pending_folders,
+            upgrade_status,
         })
     }
 
@@ -277,6 +282,31 @@ impl SyncthingService {
     pub async fn restart(&self) -> Result<()> {
         self.shutdown().await?;
         self.start().await
+    }
+
+    pub async fn check_upgrade(&self) -> Result<OperationResult> {
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+        self.syncthing_request_empty(Method::GET, &["system", "upgrade"], &[], None).await?;
+        self.operation_result().await
+    }
+
+    pub async fn perform_upgrade(&self) -> Result<OperationResult> {
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+        self.syncthing_request_empty(Method::POST, &["system", "upgrade"], &[], None).await?;
+        Ok(OperationResult { restart_required: true })
+    }
+
+    pub async fn set_auto_upgrade(&self, enabled: bool) -> Result<OperationResult> {
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+        let interval = if enabled { 12 } else { 0 };
+        self.syncthing_request_empty(
+            Method::PATCH,
+            &["config", "options"],
+            &[],
+            Some(json!({ "autoUpgradeIntervalH": interval })),
+        )
+        .await?;
+        self.operation_result().await
     }
 
     pub fn kill_owned_child(&self) {
@@ -1299,6 +1329,7 @@ fn empty_overview(
         error,
         pending_devices: std::collections::HashMap::new(),
         pending_folders: std::collections::HashMap::new(),
+        upgrade_status: None,
     }
 }
 
