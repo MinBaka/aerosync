@@ -731,9 +731,26 @@ export component AppWindow inherits Window {
                                         if root.is_syncthing_downloaded : HorizontalLayout {
                                             height: 44px;
                                             spacing: 12px;
-                                            FlatButton { width: 104px; primary: !root.is_running; text: "启动核心"; enabled: !root.is_running && !root.is_mutating; clicked => { root.start_core_requested(); } }
-                                            FlatButton { width: 104px; danger: true; text: "停止核心"; enabled: root.is_running && !root.is_mutating; clicked => { root.shutdown_core_requested(); } }
-                                            FlatButton { width: 104px; text: "重启核心"; enabled: root.is_running && !root.is_mutating; clicked => { root.restart_core_requested(); } }
+                                            if !root.is_running : FlatButton {
+                                                width: 104px;
+                                                primary: true;
+                                                text: "启动核心";
+                                                enabled: !root.is_mutating;
+                                                clicked => { root.start_core_requested(); }
+                                            }
+                                            if root.is_running : FlatButton {
+                                                width: 104px;
+                                                danger: true;
+                                                text: "停止核心";
+                                                enabled: !root.is_mutating;
+                                                clicked => { root.shutdown_core_requested(); }
+                                            }
+                                            if root.is_running : FlatButton {
+                                                width: 104px;
+                                                text: "重启核心";
+                                                enabled: !root.is_mutating;
+                                                clicked => { root.restart_core_requested(); }
+                                            }
                                             Rectangle { }
                                         }
 
@@ -811,10 +828,11 @@ export component AppWindow inherits Window {
                                 }
 
                                 Divider { }
-                                Text { horizontal-stretch: 1; text: "本机设备 ID：" + root.local_device_id; color: #1f2937; font-size: 14px; overflow: elide; }
-                                Text { horizontal-stretch: 1; text: "发现服务：" + root.discovery_text; color: #1f2937; font-size: 14px; overflow: elide; }
-                                Text { horizontal-stretch: 1; text: "启动时间：" + root.start_time; color: #1f2937; font-size: 14px; overflow: elide; }
-                                Text { horizontal-stretch: 1; text: "API 端点：" + root.api_endpoint; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { text: "本机设备 ID：" + root.local_device_id; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { text: "发现服务：" + root.discovery_text; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { text: "启动时间：" + root.start_time; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Text { text: "API 端点：" + root.api_endpoint; color: #1f2937; font-size: 14px; overflow: elide; }
+                                Rectangle { vertical-stretch: 1; }
                             }
                         }
                     }
