@@ -222,8 +222,7 @@ impl SyncthingService {
             .arg(format!("--home={}", self.config_dir.to_string_lossy()))
             .arg(format!("--gui-address={SYNCTHING_GUI_CLI_ADDRESS}"))
             .arg("--skip-port-probing")
-            .arg("--no-browser")
-            .arg("--no-restart");
+            .arg("--no-browser");
 
         #[cfg(target_os = "windows")]
         {
@@ -280,8 +279,17 @@ impl SyncthingService {
     }
 
     pub async fn restart(&self) -> Result<()> {
-        self.shutdown().await?;
-        self.start().await
+        if !self.is_child_running() && !self.detect_existing_syncthing_api().await {
+            return self.start().await;
+        }
+
+        let _ = self
+            .syncthing_request_empty(Method::POST, &["system", "restart"], &[], None)
+            .await;
+
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        self.wait_for_syncthing_api(Duration::from_secs(30)).await?;
+        Ok(())
     }
 
     pub async fn check_upgrade(&self) -> Result<OperationResult> {
@@ -292,8 +300,11 @@ impl SyncthingService {
 
     pub async fn perform_upgrade(&self) -> Result<OperationResult> {
         self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
-        self.syncthing_request_empty(Method::POST, &["system", "upgrade"], &[], None).await?;
-        Ok(OperationResult { restart_required: true })
+        let _ = self.syncthing_request_empty(Method::POST, &["system", "upgrade"], &[], None).await;
+
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        self.wait_for_syncthing_api(Duration::from_secs(60)).await?;
+        Ok(OperationResult { restart_required: false })
     }
 
     pub async fn set_auto_upgrade(&self, enabled: bool) -> Result<OperationResult> {
