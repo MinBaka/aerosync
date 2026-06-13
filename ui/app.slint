@@ -38,6 +38,18 @@ export struct LogRow {
     message: string,
 }
 
+export struct PendingDeviceRow {
+    id: string,
+    name: string,
+    address: string,
+}
+
+export struct PendingFolderRow {
+    id: string,
+    label: string,
+    offered_by: string,
+}
+
 component NavItem inherits Rectangle {
     in property <string> icon;
     in property <string> label;
@@ -288,6 +300,8 @@ export component AppWindow inherits Window {
     in property <[DeviceRow]> devices;
     in property <[TransferRow]> transfers;
     in property <[LogRow]> logs;
+    in property <[PendingDeviceRow]> pending_devices;
+    in property <[PendingFolderRow]> pending_folders;
 
     in-out property <bool> edit_folder_dialog: false;
     in-out property <bool> edit_device_dialog: false;
@@ -351,6 +365,10 @@ export component AppWindow inherits Window {
     callback device_action_requested(string, string);
     callback global_action_requested(string);
     callback confirmed_action_requested(string, string);
+    callback accept_device_requested(string);
+    callback ignore_device_requested(string);
+    callback accept_folder_requested(string, string, string);
+    callback ignore_folder_requested(string, string);
 
     HorizontalLayout {
         padding: 0px;
@@ -549,6 +567,30 @@ export component AppWindow inherits Window {
                             VerticalLayout {
                                 spacing: 14px;
 
+                                if root.pending_folders.length > 0 : Rectangle {
+                                    background: #f8fafc;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #e2e8f0;
+
+                                    VerticalLayout {
+                                        padding: 12px;
+                                        spacing: 8px;
+                                        Text { text: "待处理的文件夹共享请求"; color: #ea580c; font-size: 14px; font-weight: 700; }
+                                        for pending in root.pending_folders : HorizontalLayout {
+                                            spacing: 12px;
+                                            VerticalLayout {
+                                                spacing: 2px;
+                                                Text { text: pending.label; color: #111827; font-size: 14px; font-weight: 600; }
+                                                Text { text: "设备 " + pending.offered_by + " 想要共享文件夹 " + pending.id; color: #64748b; font-size: 12px; }
+                                            }
+                                            Rectangle { horizontal-stretch: 1; }
+                                            FlatButton { width: 64px; text: "忽略"; clicked => { root.ignore_folder_requested(pending.id, pending.offered_by); } }
+                                            FlatButton { width: 64px; primary: true; text: "接受"; clicked => { root.accept_folder_requested(pending.id, pending.offered_by, pending.label); } }
+                                        }
+                                    }
+                                }
+
                                 HorizontalLayout {
                                     height: 46px;
                                     spacing: 10px;
@@ -634,6 +676,30 @@ export component AppWindow inherits Window {
 
                             VerticalLayout {
                                 spacing: 14px;
+
+                                if root.pending_devices.length > 0 : Rectangle {
+                                    background: #f8fafc;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #e2e8f0;
+
+                                    VerticalLayout {
+                                        padding: 12px;
+                                        spacing: 8px;
+                                        Text { text: "待处理的设备连接请求"; color: #ea580c; font-size: 14px; font-weight: 700; }
+                                        for pending in root.pending_devices : HorizontalLayout {
+                                            spacing: 12px;
+                                            VerticalLayout {
+                                                spacing: 2px;
+                                                Text { text: pending.name != "" ? pending.name : "未知设备"; color: #111827; font-size: 14px; font-weight: 600; }
+                                                Text { text: "设备 " + pending.id + " (" + pending.address + ") 请求连接"; color: #64748b; font-size: 12px; }
+                                            }
+                                            Rectangle { horizontal-stretch: 1; }
+                                            FlatButton { width: 64px; text: "拒绝"; clicked => { root.ignore_device_requested(pending.id); } }
+                                            FlatButton { width: 64px; primary: true; text: "接受"; clicked => { root.accept_device_requested(pending.id); } }
+                                        }
+                                    }
+                                }
 
                                 HorizontalLayout {
                                     height: 46px;

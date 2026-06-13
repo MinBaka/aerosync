@@ -33,6 +33,9 @@ pub struct UiSnapshot {
     pub nat_enabled: bool,
     pub reconnection_interval: i32,
     pub max_connections: i32,
+
+    pub pending_devices: Vec<crate::PendingDeviceRow>,
+    pub pending_folders: Vec<crate::PendingFolderRow>,
 }
 
 pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
@@ -270,6 +273,23 @@ pub fn snapshot_from_overview(overview: SyncthingOverview) -> UiSnapshot {
         nat_enabled: overview.config.options.nat_enabled.unwrap_or(true),
         reconnection_interval: overview.config.options.reconnection_interval_s.unwrap_or(60),
         max_connections: overview.config.options.connection_limit_max.unwrap_or(0),
+        pending_devices: overview.pending_devices.into_iter().map(|(id, device)| {
+            crate::PendingDeviceRow {
+                id: shared(id),
+                name: shared(device.name),
+                address: shared(device.address),
+            }
+        }).collect(),
+        pending_folders: overview.pending_folders.into_iter().map(|(id, folder)| {
+            // Take the first offered_by device for simplicity in the UI
+            let offered_by = folder.offered_by.keys().next().cloned().unwrap_or_default();
+            let label = folder.offered_by.values().next().map(|o| o.label.clone()).unwrap_or_default();
+            crate::PendingFolderRow {
+                id: shared(id),
+                label: shared(if label.is_empty() { "未命名文件夹".to_string() } else { label }),
+                offered_by: shared(offered_by),
+            }
+        }).collect(),
     }
 }
 

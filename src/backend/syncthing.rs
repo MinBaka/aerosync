@@ -121,6 +121,9 @@ impl SyncthingService {
             device_completions.insert(device.device_id.clone(), completion);
         }
 
+        let pending_devices = self.get_pending_devices().await.unwrap_or_default();
+        let pending_folders = self.get_pending_folders().await.unwrap_or_default();
+
         let restart_required = self.get_restart_required().await.unwrap_or(false);
 
         Ok(SyncthingOverview {
@@ -134,6 +137,8 @@ impl SyncthingService {
             device_completions,
             restart_required,
             error: None,
+            pending_devices,
+            pending_folders,
         })
     }
 
@@ -1061,6 +1066,111 @@ impl SyncthingService {
         Ok(logs)
     }
 
+    async fn get_pending_devices(&self) -> Result<std::collections::HashMap<String, crate::backend::models::PendingDevice>> {
+        let value = self.syncthing_get(&["cluster", "pending", "devices"], &[]).await?;
+        serde_json::from_value(value).map_err(Into::into)
+    }
+
+    async fn get_pending_folders(&self) -> Result<std::collections::HashMap<String, crate::backend::models::PendingFolder>> {
+        let value = self.syncthing_get(&["cluster", "pending", "folders"], &[]).await?;
+        serde_json::from_value(value).map_err(Into::into)
+    }
+
+    pub async fn accept_device(&self, device_id: &str) -> Result<OperationResult> {
+        let device_id = normalize_required(device_id, "设备 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let pending = self.get_pending_devices().await?;
+        let device = pending.get(&device_id).context("找不到该待处理设备")?;
+
+        let request = AddDeviceRequest {
+            device_id: device_id.clone(),
+            name: device.name.clone(),
+            addresses: vec!["dynamic".to_string()],
+            folder_ids: vec![],
+            introducer: Some(false),
+            auto_accept_folders: Some(false),
+            max_send_kbps: None,
+            max_recv_kbps: None,
+            compression: Some("metadata".to_string()),
+        };
+
+        self.add_device(request).await?;
+
+        // 移除待处理状态
+        self.syncthing_request_empty(
+            Method::DELETE,
+            &["cluster", "pending", "devices"],
+            &[("device", device_id)],
+            None,
+        ).await?;
+
+        Ok(OperationResult { restart_required: false })
+    }
+
+    pub async fn ignore_device(&self, device_id: &str) -> Result<OperationResult> {
+        let device_id = normalize_required(device_id, "设备 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        self.syncthing_request_empty(
+            Method::DELETE,
+            &["cluster", "pending", "devices"],
+            &[("device", device_id)],
+            None,
+        ).await?;
+
+        Ok(OperationResult { restart_required: false })
+    }
+
+    pub async fn accept_folder(&self, folder_id: &str, device_id: &str, label: &str) -> Result<OperationResult> {
+        let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
+        let device_id = normalize_required(device_id, "设备 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
+        let path = home_dir.join("Sync").join(&folder_id);
+
+        let request = AddFolderRequest {
+            id: folder_id.clone(),
+            label: label.to_string(),
+            path: path.to_string_lossy().to_string(),
+            device_ids: vec![device_id.clone()],
+            folder_type: Some("sendreceive".to_string()),
+            rescan_interval_s: Some(3600),
+            fs_watcher_enabled: Some(true),
+            ignore_perms: Some(false),
+            ignore_delete: Some(false),
+            versioning: None,
+        };
+
+        self.add_folder(request).await?;
+
+        // 移除待处理状态
+        self.syncthing_request_empty(
+            Method::DELETE,
+            &["cluster", "pending", "folders"],
+            &[("folder", folder_id), ("device", device_id)],
+            None,
+        ).await?;
+
+        Ok(OperationResult { restart_required: false })
+    }
+
+    pub async fn ignore_folder(&self, folder_id: &str, device_id: &str) -> Result<OperationResult> {
+        let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
+        let device_id = normalize_required(device_id, "设备 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        self.syncthing_request_empty(
+            Method::DELETE,
+            &["cluster", "pending", "folders"],
+            &[("folder", folder_id), ("device", device_id)],
+            None,
+        ).await?;
+
+        Ok(OperationResult { restart_required: false })
+    }
+
     pub async fn save_global_settings(
         &self,
         global_discovery: bool,
@@ -1191,6 +1301,8 @@ fn empty_overview(
         device_completions: std::collections::HashMap::new(),
         restart_required: false,
         error,
+        pending_devices: std::collections::HashMap::new(),
+        pending_folders: std::collections::HashMap::new(),
     }
 }
 

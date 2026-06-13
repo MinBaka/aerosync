@@ -281,6 +281,41 @@ impl AppController {
         });
 
         let controller = self.clone();
+        app.on_accept_device_requested(move |device_id| {
+            let device_id = device_id.to_string();
+            controller.run_mutation("接受设备", move |service| async move {
+                Ok(Some(service.accept_device(&device_id).await?))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_ignore_device_requested(move |device_id| {
+            let device_id = device_id.to_string();
+            controller.run_mutation("忽略设备", move |service| async move {
+                Ok(Some(service.ignore_device(&device_id).await?))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_accept_folder_requested(move |folder_id, device_id, label| {
+            let folder_id = folder_id.to_string();
+            let device_id = device_id.to_string();
+            let label = label.to_string();
+            controller.run_mutation("接受文件夹", move |service| async move {
+                Ok(Some(service.accept_folder(&folder_id, &device_id, &label).await?))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_ignore_folder_requested(move |folder_id, device_id| {
+            let folder_id = folder_id.to_string();
+            let device_id = device_id.to_string();
+            controller.run_mutation("忽略文件夹", move |service| async move {
+                Ok(Some(service.ignore_folder(&folder_id, &device_id).await?))
+            });
+        });
+
+        let controller = self.clone();
         app.on_save_global_settings_requested(move || {
             let weak = controller.app.clone();
             let ctrl = controller.clone();
@@ -480,6 +515,8 @@ fn apply_overview(app: &AppWindow, overview: SyncthingOverview) {
     app.set_folders(model(snapshot.folders));
     app.set_devices(model(snapshot.devices));
     app.set_transfers(model(snapshot.transfers));
+    app.set_pending_devices(model(snapshot.pending_devices));
+    app.set_pending_folders(model(snapshot.pending_folders));
 }
 
 fn apply_logs(app: &AppWindow, logs: Vec<crate::backend::models::LogEntry>) {

@@ -71,6 +71,10 @@ pub struct SyncthingOverview {
     pub device_completions: std::collections::HashMap<String, DeviceCompletion>,
     pub restart_required: bool,
     pub error: Option<String>,
+    #[serde(default)]
+    pub pending_devices: std::collections::HashMap<String, PendingDevice>,
+    #[serde(default)]
+    pub pending_folders: std::collections::HashMap<String, PendingFolder>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -95,6 +99,39 @@ pub struct DeviceCompletion {
     pub completion: f64,
     #[serde(default)]
     pub need_bytes: u64,
+    #[serde(flatten)]
+    pub raw: serde_json::Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingDevice {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub address: String,
+    #[serde(default)]
+    pub time: String,
+    #[serde(flatten)]
+    pub raw: serde_json::Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingFolderOffer {
+    #[serde(default)]
+    pub time: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(flatten)]
+    pub raw: serde_json::Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingFolder {
+    #[serde(default, rename = "offeredBy")]
+    pub offered_by: std::collections::HashMap<String, PendingFolderOffer>,
     #[serde(flatten)]
     pub raw: serde_json::Map<String, Value>,
 }
