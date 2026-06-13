@@ -234,12 +234,17 @@ impl AppController {
             let action_name = match action.as_str() {
                 "remove-folder" => "删除文件夹",
                 "remove-device" => "删除设备",
+                "delete-folder-files" => "删除文件夹文件",
                 _ => "确认操作",
             };
             controller.run_mutation(action_name, move |service| async move {
                 let result = match action.as_str() {
                     "remove-folder" => service.remove_folder(&target).await?,
                     "remove-device" => service.remove_device(&target).await?,
+                    "delete-folder-files" => {
+                        service.delete_folder_files(&target).await?;
+                        OperationResult { restart_required: false }
+                    }
                     _ => bail!("未知确认操作: {action}"),
                 };
                 Ok(Some(result))

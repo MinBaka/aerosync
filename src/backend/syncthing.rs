@@ -424,6 +424,26 @@ impl SyncthingService {
         self.operation_result().await
     }
 
+    pub async fn delete_folder_files(&self, folder_id: &str) -> Result<()> {
+        let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        // 获取文件夹配置以得到路径
+        let folder = self
+            .syncthing_get(&["config", "folders", &folder_id], &[])
+            .await?;
+
+        let path = folder["path"]
+            .as_str()
+            .context("文件夹配置中没有 path 字段")?;
+
+        // 删除文件夹
+        std::fs::remove_dir_all(path)
+            .with_context(|| format!("删除文件夹失败: {}", path))?;
+
+        Ok(())
+    }
+
     pub async fn rescan_folder(&self, folder_id: &str) -> Result<OperationResult> {
         let folder_id = normalize_required(folder_id, "文件夹 ID 不能为空")?;
         self.wait_for_syncthing_api(Duration::from_secs(10)).await?;

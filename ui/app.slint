@@ -500,7 +500,7 @@ export component AppWindow inherits Window {
                                     Text { horizontal-stretch: 1; text: "名称"; color: #64748b; font-size: 13px; }
                                     Text { width: 110px; text: "共享设备"; color: #64748b; font-size: 13px; }
                                     Text { width: 110px; text: "状态"; color: #64748b; font-size: 13px; }
-                                    Text { width: 260px; text: "操作"; color: #64748b; font-size: 13px; }
+                                    Text { width: 326px; text: "操作"; color: #64748b; font-size: 13px; }
                                     Rectangle { width: 14px; }
                                 }
                                 Divider { }
@@ -539,7 +539,7 @@ export component AppWindow inherits Window {
                                                 }
 
                                                 HorizontalLayout {
-                                                    width: 260px;
+                                                    width: 326px;
                                                     spacing: 7px;
                                                     padding-top: 19px;
                                                     padding-right: 14px;
@@ -547,7 +547,8 @@ export component AppWindow inherits Window {
                                                     SmallButton { text: "忽略"; enabled: root.is_ready && !root.is_mutating; clicked => { root.ignores_folder_id = folder.id; root.ignores_text = ""; root.get_folder_ignores_requested(folder.id); root.ignores_dialog = true; } }
                                                     SmallButton { text: "编辑"; enabled: root.is_ready && !root.is_mutating; clicked => { root.folder_id = folder.id; root.folder_label = folder.title; root.folder_path = folder.subtitle; root.folder_devices = ""; root.edit_folder_dialog = true; } }
                                                     SmallButton { text: folder.paused ? "恢复" : "暂停"; enabled: root.is_ready && !root.is_mutating; clicked => { root.folder_action_requested(folder.paused ? "resume" : "pause", folder.id); } }
-                                                    SmallButton { text: "删除"; danger: true; enabled: !root.is_mutating; clicked => { root.confirm_title = "删除同步文件夹"; root.confirm_message = "确认从 Syncthing 配置中删除这个文件夹？本操作不会删除磁盘上的实际文件。"; root.confirm_action = "remove-folder"; root.confirm_target = folder.id; root.confirm_dialog = true; } }
+                                                    SmallButton { text: "删除"; danger: true; enabled: root.is_ready && !root.is_mutating; clicked => { root.confirm_title = "删除同步文件夹"; root.confirm_message = "确认从 Syncthing 配置中删除这个文件夹？本操作不会删除磁盘上的实际文件。"; root.confirm_action = "remove-folder"; root.confirm_target = folder.id; root.confirm_dialog = true; } }
+                                                    SmallButton { text: "删文件"; danger: true; enabled: root.is_ready && !root.is_mutating; clicked => { root.confirm_title = "删除文件夹文件"; root.confirm_message = "警告：此操作将删除磁盘上的实际文件夹及其所有内容，无法恢复！"; root.confirm_action = "delete-folder-files"; root.confirm_target = folder.id; root.confirm_dialog = true; } }
                                                 }
                                             }
                                         }
@@ -617,7 +618,7 @@ export component AppWindow inherits Window {
                                                     padding-right: 14px;
                                                     SmallButton { text: "编辑"; enabled: root.is_ready && !root.is_mutating; clicked => { root.device_id = device.id; root.device_name = device.name; root.device_addresses = ""; root.device_folders = ""; root.edit_device_dialog = true; } }
                                                     SmallButton { text: device.paused ? "恢复" : "暂停"; enabled: root.is_ready && !root.is_mutating; clicked => { root.device_action_requested(device.paused ? "resume" : "pause", device.id); } }
-                                                    SmallButton { text: "删除"; danger: true; enabled: !root.is_mutating; clicked => { root.confirm_title = "删除远程设备"; root.confirm_message = "确认删除该设备？它也会从所有共享文件夹中移除。"; root.confirm_action = "remove-device"; root.confirm_target = device.id; root.confirm_dialog = true; } }
+                                                    SmallButton { text: "删除"; danger: true; enabled: root.is_ready && !root.is_mutating; clicked => { root.confirm_title = "删除远程设备"; root.confirm_message = "确认删除该设备？它也会从所有共享文件夹中移除。"; root.confirm_action = "remove-device"; root.confirm_target = device.id; root.confirm_dialog = true; } }
                                                 }
                                             }
                                         }
@@ -806,23 +807,35 @@ export component AppWindow inherits Window {
                                             FlatButton { width: 128px; text: "恢复全部设备"; enabled: root.is_ready && !root.is_mutating; clicked => { root.global_action_requested("resume-all"); } }
                                             Rectangle { }
                                         }
+                                    }
+                                }
 
-                                        HorizontalLayout {
-                                            height: 36px;
-                                            spacing: 12px;
-                                            Text { width: 104px; text: "关闭托盘"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
-                                            Rectangle { vertical-stretch: 1; }
+                                Rectangle {
+                                    height: 80px;
+                                    background: #f8fafc;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #e2e8f0;
+
+                                    HorizontalLayout {
+                                        padding: 12px;
+                                        spacing: 12px;
+                                        VerticalLayout {
+                                            spacing: 4px;
+                                            Text { text: "最小化到托盘"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
+                                            Text { text: "关闭窗口时最小化到系统托盘而不是退出程序"; color: #64748b; font-size: 12px; }
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        Rectangle {
+                                            width: 44px; height: 24px; border-radius: 12px;
+                                            background: root.close_to_tray ? #2563eb : #cbd5e1;
                                             Rectangle {
-                                                width: 44px; height: 24px; border-radius: 12px;
-                                                background: root.close_to_tray ? #cbd5e1 : #2563eb;
-                                                Rectangle {
-                                                    width: 20px; height: 20px; border-radius: 10px;
-                                                    background: #ffffff;
-                                                    x: root.close_to_tray ? 2px : 22px;
-                                                    y: 2px;
-                                                }
-                                                TouchArea { clicked => { root.close_to_tray = !root.close_to_tray; } }
+                                                width: 20px; height: 20px; border-radius: 10px;
+                                                background: #ffffff;
+                                                x: root.close_to_tray ? 22px : 2px;
+                                                y: 2px;
                                             }
+                                            TouchArea { clicked => { root.close_to_tray = !root.close_to_tray; } }
                                         }
                                     }
                                 }
