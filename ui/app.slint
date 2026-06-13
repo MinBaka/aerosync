@@ -1090,13 +1090,13 @@ export component AppWindow inherits Window {
     }
 
     Rectangle {
-        visible: root.add_folder_dialog || root.edit_folder_dialog || root.add_device_dialog || root.edit_device_dialog || root.ignores_dialog || root.confirm_dialog;
+        visible: root.add_folder_dialog || root.edit_folder_dialog || root.add_device_dialog || root.edit_device_dialog || root.global_settings_dialog || root.ignores_dialog || root.confirm_dialog;
         x: 0px;
         y: 0px;
         width: root.width;
         height: root.height;
         background: #00000066;
-        opacity: root.add_folder_dialog || root.edit_folder_dialog || root.add_device_dialog || root.edit_device_dialog || root.ignores_dialog || root.confirm_dialog ? 1.0 : 0.0;
+        opacity: root.add_folder_dialog || root.edit_folder_dialog || root.add_device_dialog || root.edit_device_dialog || root.global_settings_dialog || root.ignores_dialog || root.confirm_dialog ? 1.0 : 0.0;
 
         animate opacity { duration: 200ms; easing: ease-in-out; }
     }
