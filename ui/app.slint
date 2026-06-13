@@ -919,7 +919,7 @@ export component AppWindow inherits Window {
                                             height: 36px;
                                             spacing: 12px;
                                             Text { width: 92px; text: "核心更新"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
-                                            Text { horizontal-stretch: 1; text: root.has_update ? "发现新版本：" + root.latest_version : "当前已是最新版本"; color: root.has_update ? #ea580c : #64748b; font-size: 13px; vertical-alignment: center; overflow: elide; }
+                                            Text { horizontal-stretch: 1; text: !root.is_syncthing_downloaded ? "等待下载核心" : root.has_update ? "发现新版本：" + root.latest_version : "当前已是最新版本"; color: !root.is_syncthing_downloaded ? #94a3b8 : root.has_update ? #ea580c : #64748b; font-size: 13px; vertical-alignment: center; overflow: elide; }
                                         }
 
                                         if root.is_syncthing_downloaded : HorizontalLayout {
