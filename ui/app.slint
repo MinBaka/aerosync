@@ -297,6 +297,7 @@ export component AppWindow inherits Window {
 
     in-out property <bool> add_folder_dialog: false;
     in-out property <bool> add_device_dialog: false;
+    in-out property <bool> global_settings_dialog: false;
     in-out property <bool> confirm_dialog: false;
     in-out property <string> confirm_title: "";
     in-out property <string> confirm_message: "";
@@ -322,6 +323,13 @@ export component AppWindow inherits Window {
     in-out property <bool> device_auto_accept_folders: false;
     in-out property <string> device_compression: "metadata";
 
+    in-out property <bool> global_discovery_enabled: true;
+    in-out property <bool> local_discovery_enabled: true;
+    in-out property <bool> global_announce_enabled: true;
+    in-out property <bool> nat_enabled: true;
+    in-out property <int> reconnection_interval: 60;
+    in-out property <int> max_connections: 0;
+
     in-out property <string> config_max_recv_kbps: "";
     in-out property <string> config_max_send_kbps: "";
 
@@ -334,6 +342,7 @@ export component AppWindow inherits Window {
     callback set_rate_limits_requested(string, string);
     callback get_folder_ignores_requested(string);
     callback set_folder_ignores_requested(string, string);
+    callback save_global_settings_requested();
     callback edit_folder_requested(string, string, string, string, string, int, bool, bool, bool, string);
     callback edit_device_requested(string, string, string, string, bool, bool, string);
     callback add_folder_requested(string, string, string, string, string, int, bool, bool, bool, string);
@@ -949,6 +958,31 @@ export component AppWindow inherits Window {
                                         spacing: 12px;
                                         VerticalLayout {
                                             spacing: 4px;
+                                            Text { text: "全局高级设置"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
+                                            Text { text: "配置发现、NAT 穿透、连接等高级选项"; color: #64748b; font-size: 12px; }
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        FlatButton {
+                                            width: 104px;
+                                            text: "打开设置";
+                                            enabled: root.is_ready && !root.is_mutating;
+                                            clicked => { root.global_settings_dialog = true; }
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 80px;
+                                    background: #f8fafc;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #e2e8f0;
+
+                                    HorizontalLayout {
+                                        padding: 12px;
+                                        spacing: 12px;
+                                        VerticalLayout {
+                                            spacing: 4px;
                                             Text { text: "最小化到托盘"; color: #111827; font-size: 16px; font-weight: 800; vertical-alignment: center; }
                                             Text { text: "关闭窗口时最小化到系统托盘而不是退出程序"; color: #64748b; font-size: 12px; }
                                         }
@@ -1372,6 +1406,157 @@ export component AppWindow inherits Window {
                     clicked => {
                         root.set_folder_ignores_requested(root.ignores_folder_id, root.ignores_text);
                         root.ignores_dialog = false;
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        visible: root.global_settings_dialog;
+        x: (root.width - 580px) / 2;
+        y: 60px;
+        width: 580px;
+        height: 560px;
+        background: #ffffff;
+        border-radius: 12px;
+        opacity: root.global_settings_dialog ? 1.0 : 0.0;
+
+        animate opacity { duration: 200ms; easing: ease-out; }
+        animate y { duration: 250ms; easing: ease-out; }
+
+        VerticalLayout {
+            padding: 22px;
+            spacing: 12px;
+            Text { text: "全局高级设置"; color: #111827; font-size: 21px; font-weight: 800; }
+
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding-right: 12px;
+                    spacing: 14px;
+
+                    Text { text: "设备发现"; color: #111827; font-size: 16px; font-weight: 700; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "全局发现"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.global_discovery_enabled ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.global_discovery_enabled ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.global_discovery_enabled = !root.global_discovery_enabled; } }
+                        }
+                    }
+                    Text { text: "使用全局发现服务器查找其他设备"; color: #94a3b8; font-size: 11px; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "本地发现"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.local_discovery_enabled ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.local_discovery_enabled ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.local_discovery_enabled = !root.local_discovery_enabled; } }
+                        }
+                    }
+                    Text { text: "在本地网络中广播以发现设备"; color: #94a3b8; font-size: 11px; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "全局通告"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.global_announce_enabled ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.global_announce_enabled ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.global_announce_enabled = !root.global_announce_enabled; } }
+                        }
+                    }
+                    Text { text: "向全局发现服务器通告此设备"; color: #94a3b8; font-size: 11px; }
+
+                    Divider { }
+                    Text { text: "连接设置"; color: #111827; font-size: 16px; font-weight: 700; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "启用 NAT 穿透"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.nat_enabled ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.nat_enabled ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.nat_enabled = !root.nat_enabled; } }
+                        }
+                    }
+                    Text { text: "使用 STUN 和其他技术穿透 NAT"; color: #94a3b8; font-size: 11px; }
+
+                    Text { text: "重连间隔（秒）"; color: #64748b; font-size: 13px; }
+                    LineEdit {
+                        text: root.reconnection_interval;
+                        input-type: number;
+                        placeholder-text: "60";
+                    }
+                    Text { text: "尝试重新连接断开设备的间隔"; color: #94a3b8; font-size: 11px; }
+
+                    Text { text: "最大连接数（0 表示无限制）"; color: #64748b; font-size: 13px; }
+                    LineEdit {
+                        text: root.max_connections;
+                        input-type: number;
+                        placeholder-text: "0";
+                    }
+                    Text { text: "同时连接的最大设备数量"; color: #94a3b8; font-size: 11px; }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                Rectangle { }
+                FlatButton {
+                    width: 72px;
+                    text: "取消";
+                    clicked => {
+                        root.global_settings_dialog = false;
+                    }
+                }
+                FlatButton {
+                    width: 72px;
+                    primary: true;
+                    text: "保存";
+                    enabled: !root.is_mutating;
+                    clicked => {
+                        root.save_global_settings_requested();
+                        root.global_settings_dialog = false;
                     }
                 }
             }

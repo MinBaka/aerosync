@@ -1060,6 +1060,49 @@ impl SyncthingService {
 
         Ok(logs)
     }
+
+    pub async fn save_global_settings(
+        &self,
+        global_discovery: bool,
+        local_discovery: bool,
+        global_announce: bool,
+        nat_enabled: bool,
+        reconnection_interval: i32,
+        max_connections: i32,
+    ) -> Result<OperationResult> {
+        self.wait_for_syncthing_api(Duration::from_secs(10)).await?;
+
+        let mut config = self.syncthing_get(&["config"], &[]).await?;
+
+        // Update options
+        if let Some(options) = config.get_mut("options").and_then(Value::as_object_mut) {
+            options.insert("globalAnnounceEnabled".to_string(), json!(global_announce));
+            options.insert("localAnnounceEnabled".to_string(), json!(local_discovery));
+            options.insert("natEnabled".to_string(), json!(nat_enabled));
+            options.insert("reconnectionIntervalS".to_string(), json!(reconnection_interval));
+
+            if max_connections > 0 {
+                options.insert("connectionLimitMax".to_string(), json!(max_connections));
+            }
+
+            // Global discovery servers
+            if global_discovery {
+                if !options.contains_key("globalAnnounceServers") {
+                    options.insert(
+                        "globalAnnounceServers".to_string(),
+                        json!(["default"]),
+                    );
+                }
+            } else {
+                options.insert("globalAnnounceServers".to_string(), json!([]));
+            }
+        }
+
+        self.syncthing_request_empty(Method::PUT, &["config"], &[], Some(config))
+            .await?;
+
+        self.operation_result().await
+    }
 }
 
 impl Drop for SyncthingService {
