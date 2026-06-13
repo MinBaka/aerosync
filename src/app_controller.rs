@@ -159,19 +159,37 @@ impl AppController {
         });
 
         let controller = self.clone();
-        app.on_add_device_requested(move |device_id, name, addresses, folder_ids| {
+        app.on_add_device_requested(move |device_id, name, addresses, folder_ids, introducer, auto_accept, compression| {
             let request = AddDeviceRequest {
                 device_id: device_id.to_string(),
                 name: name.to_string(),
                 addresses: parse_addresses(&addresses),
                 folder_ids: split_ids(&folder_ids),
-                introducer: None,
-                auto_accept_folders: None,
+                introducer: Some(introducer),
+                auto_accept_folders: Some(auto_accept),
                 max_send_kbps: None,
                 max_recv_kbps: None,
-                compression: None,
+                compression: Some(compression.to_string()),
             };
-            controller.run_mutation("添加/编辑设备", move |service| async move {
+            controller.run_mutation("添加设备", move |service| async move {
+                Ok(Some(service.edit_device(request).await?))
+            });
+        });
+
+        let controller = self.clone();
+        app.on_edit_device_requested(move |device_id, name, addresses, folder_ids, introducer, auto_accept, compression| {
+            let request = AddDeviceRequest {
+                device_id: device_id.to_string(),
+                name: name.to_string(),
+                addresses: parse_addresses(&addresses),
+                folder_ids: split_ids(&folder_ids),
+                introducer: Some(introducer),
+                auto_accept_folders: Some(auto_accept),
+                max_send_kbps: None,
+                max_recv_kbps: None,
+                compression: Some(compression.to_string()),
+            };
+            controller.run_mutation("编辑设备", move |service| async move {
                 Ok(Some(service.edit_device(request).await?))
             });
         });

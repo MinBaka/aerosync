@@ -543,6 +543,23 @@ impl SyncthingService {
         device["addresses"] = json!(addresses);
         device["paused"] = json!(false);
 
+        // Apply advanced settings
+        if let Some(introducer) = request.introducer {
+            device["introducer"] = json!(introducer);
+        }
+        if let Some(auto_accept) = request.auto_accept_folders {
+            device["autoAcceptFolders"] = json!(auto_accept);
+        }
+        if let Some(compression) = &request.compression {
+            device["compression"] = json!(compression);
+        }
+        if let Some(max_send) = request.max_send_kbps {
+            device["maxSendKbps"] = json!(max_send);
+        }
+        if let Some(max_recv) = request.max_recv_kbps {
+            device["maxRecvKbps"] = json!(max_recv);
+        }
+
         self.syncthing_request_empty(Method::POST, &["config", "devices"], &[], Some(device))
             .await?;
 
@@ -590,6 +607,23 @@ impl SyncthingService {
                 if device.get("deviceID").and_then(Value::as_str) == Some(&device_id) {
                     device["name"] = json!(request.name.trim());
                     device["addresses"] = json!(addresses);
+
+                    // Apply advanced settings
+                    if let Some(introducer) = request.introducer {
+                        device["introducer"] = json!(introducer);
+                    }
+                    if let Some(auto_accept) = request.auto_accept_folders {
+                        device["autoAcceptFolders"] = json!(auto_accept);
+                    }
+                    if let Some(compression) = &request.compression {
+                        device["compression"] = json!(compression);
+                    }
+                    if let Some(max_send) = request.max_send_kbps {
+                        device["maxSendKbps"] = json!(max_send);
+                    }
+                    if let Some(max_recv) = request.max_recv_kbps {
+                        device["maxRecvKbps"] = json!(max_recv);
+                    }
                 }
             }
         }

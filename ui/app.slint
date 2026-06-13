@@ -318,6 +318,9 @@ export component AppWindow inherits Window {
     in-out property <string> device_name: "";
     in-out property <string> device_addresses: "dynamic";
     in-out property <string> device_folders: "";
+    in-out property <bool> device_introducer: false;
+    in-out property <bool> device_auto_accept_folders: false;
+    in-out property <string> device_compression: "metadata";
 
     in-out property <string> config_max_recv_kbps: "";
     in-out property <string> config_max_send_kbps: "";
@@ -332,9 +335,9 @@ export component AppWindow inherits Window {
     callback get_folder_ignores_requested(string);
     callback set_folder_ignores_requested(string, string);
     callback edit_folder_requested(string, string, string, string, string, int, bool, bool, bool, string);
-    callback edit_device_requested(string, string, string, string);
+    callback edit_device_requested(string, string, string, string, bool, bool, string);
     callback add_folder_requested(string, string, string, string, string, int, bool, bool, bool, string);
-    callback add_device_requested(string, string, string, string);
+    callback add_device_requested(string, string, string, string, bool, bool, string);
     callback folder_action_requested(string, string);
     callback device_action_requested(string, string);
     callback global_action_requested(string);
@@ -1186,10 +1189,10 @@ export component AppWindow inherits Window {
 
     Rectangle {
         visible: root.add_device_dialog || root.edit_device_dialog;
-        x: (root.width - 520px) / 2;
-        y: 100px;
-        width: 520px;
-        height: 430px;
+        x: (root.width - 580px) / 2;
+        y: 60px;
+        width: 580px;
+        height: 620px;
         background: #ffffff;
         border-radius: 12px;
         opacity: root.add_device_dialog || root.edit_device_dialog ? 1.0 : 0.0;
@@ -1201,13 +1204,92 @@ export component AppWindow inherits Window {
             padding: 22px;
             spacing: 12px;
             Text { text: root.edit_device_dialog ? "编辑远程设备" : "添加远程设备"; color: #111827; font-size: 21px; font-weight: 800; }
-            LineEdit { placeholder-text: "设备 ID"; text <=> root.device_id; enabled: !root.edit_device_dialog; }
-            LineEdit { placeholder-text: "设备名称，例如 NAS / Laptop"; text <=> root.device_name; }
-            Text { text: "地址（dynamic 或 tcp://host:22000，逗号分隔）"; color: #64748b; font-size: 12px; }
-            LineEdit { text <=> root.device_addresses; }
-            Text { text: "共享文件夹 ID（逗号分隔）"; color: #64748b; font-size: 12px; }
-            LineEdit { placeholder-text: "留空则暂不共享"; text <=> root.device_folders; }
-            Text { text: root.folder_choices == "" ? "暂无同步文件夹。" : "可选文件夹：" + root.folder_choices; color: #94a3b8; font-size: 12px; }
+
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    spacing: 12px;
+
+                    Text { text: "基本设置"; color: #111827; font-size: 16px; font-weight: 700; }
+                    LineEdit { placeholder-text: "设备 ID"; text <=> root.device_id; enabled: !root.edit_device_dialog; }
+                    LineEdit { placeholder-text: "设备名称，例如 NAS / Laptop"; text <=> root.device_name; }
+                    Text { text: "地址（dynamic 或 tcp://host:22000，逗号分隔）"; color: #64748b; font-size: 12px; }
+                    LineEdit { text <=> root.device_addresses; }
+
+                    Divider { }
+                    Text { text: "高级设置"; color: #111827; font-size: 16px; font-weight: 700; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "引入者"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.device_introducer ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.device_introducer ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.device_introducer = !root.device_introducer; } }
+                        }
+                    }
+                    Text { text: "该设备可以引入其他设备到集群"; color: #94a3b8; font-size: 11px; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "自动接受文件夹"; color: #64748b; font-size: 13px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Rectangle {
+                            width: 44px; height: 24px; border-radius: 12px;
+                            background: root.device_auto_accept_folders ? #2563eb : #cbd5e1;
+                            animate background { duration: 200ms; easing: ease-in-out; }
+                            Rectangle {
+                                width: 20px; height: 20px; border-radius: 10px;
+                                background: #ffffff;
+                                x: root.device_auto_accept_folders ? 22px : 2px;
+                                y: 2px;
+                                animate x { duration: 200ms; easing: ease-in-out; }
+                            }
+                            TouchArea { clicked => { root.device_auto_accept_folders = !root.device_auto_accept_folders; } }
+                        }
+                    }
+                    Text { text: "自动接受此设备共享的新文件夹"; color: #94a3b8; font-size: 11px; }
+
+                    Text { text: "压缩方式"; color: #64748b; font-size: 13px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "全部压缩";
+                            selected: root.device_compression == "always";
+                            clicked => { root.device_compression = "always"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "仅元数据";
+                            selected: root.device_compression == "metadata";
+                            clicked => { root.device_compression = "metadata"; }
+                        }
+                        OptionButton {
+                            horizontal-stretch: 1;
+                            text: "不压缩";
+                            selected: root.device_compression == "never";
+                            clicked => { root.device_compression = "never"; }
+                        }
+                    }
+
+                    Divider { }
+                    Text { text: "共享文件夹"; color: #111827; font-size: 16px; font-weight: 700; }
+                    Text { text: "共享文件夹 ID（逗号分隔）"; color: #64748b; font-size: 12px; }
+                    LineEdit { placeholder-text: "留空则暂不共享"; text <=> root.device_folders; }
+                    Text { text: root.folder_choices == "" ? "暂无同步文件夹。" : "可选文件夹：" + root.folder_choices; color: #94a3b8; font-size: 12px; }
+                }
+            }
+
             HorizontalLayout {
                 spacing: 10px;
                 Rectangle { }
@@ -1226,9 +1308,9 @@ export component AppWindow inherits Window {
                     enabled: !root.is_mutating;
                     clicked => {
                         if root.edit_device_dialog {
-                            root.edit_device_requested(root.device_id, root.device_name, root.device_addresses, root.device_folders);
+                            root.edit_device_requested(root.device_id, root.device_name, root.device_addresses, root.device_folders, root.device_introducer, root.device_auto_accept_folders, root.device_compression);
                         } else {
-                            root.add_device_requested(root.device_id, root.device_name, root.device_addresses, root.device_folders);
+                            root.add_device_requested(root.device_id, root.device_name, root.device_addresses, root.device_folders, root.device_introducer, root.device_auto_accept_folders, root.device_compression);
                         }
                         root.add_device_dialog = false;
                         root.edit_device_dialog = false;
